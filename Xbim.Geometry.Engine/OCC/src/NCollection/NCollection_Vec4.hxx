@@ -80,6 +80,18 @@ public:
     v[3] = theAlpha;
   }
 
+  //! Assign new values to the vector.
+  void SetValues (const Element_t theX,
+                  const Element_t theY,
+                  const Element_t theZ,
+                  const Element_t theW)
+  {
+    v[0] = theX;
+    v[1] = theY;
+    v[2] = theZ;
+    v[3] = theW;
+  }
+
   //! Alias to 1st component as X coordinate in XYZW.
   Element_t x() const { return v[0]; }
 
@@ -174,6 +186,23 @@ public:
   {
     return *((NCollection_Vec3<Element_t>* )&v[1]);
   }
+
+  //! Check this vector with another vector for equality (without tolerance!).
+  bool IsEqual (const NCollection_Vec4& theOther) const
+  {
+    return v[0] == theOther.v[0]
+        && v[1] == theOther.v[1]
+        && v[2] == theOther.v[2]
+        && v[3] == theOther.v[3];
+  }
+
+  //! Check this vector with another vector for equality (without tolerance!).
+  bool operator== (const NCollection_Vec4& theOther)       { return IsEqual (theOther); }
+  bool operator== (const NCollection_Vec4& theOther) const { return IsEqual (theOther); }
+
+  //! Check this vector with another vector for non-equality (without tolerance!).
+  bool operator!= (const NCollection_Vec4& theOther)       { return !IsEqual (theOther); }
+  bool operator!= (const NCollection_Vec4& theOther) const { return !IsEqual (theOther); }
 
   //! Raw access to the data (for OpenGL exchange).
   const Element_t* GetData()    const { return v; }

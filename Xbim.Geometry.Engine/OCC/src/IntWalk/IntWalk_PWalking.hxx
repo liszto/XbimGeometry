@@ -132,7 +132,30 @@ public:
   
   Standard_EXPORT void RepartirOuDiviser (Standard_Boolean& DejaReparti, IntImp_ConstIsoparametric& ChoixIso, Standard_Boolean& Arrive);
   
-    void AddAPoint (Handle(IntSurf_LineOn2S)& line, const IntSurf_PntOn2S& POn2S);
+  //! Inserts thePOn2S in the end of line
+  void AddAPoint (const IntSurf_PntOn2S& thePOn2S);
+
+  //! Removes point with index theIndex from line.
+  //! If theIndex is greater than the number of points in line
+  //! then the last point will be removed.
+  //! theIndex must be started with 1.
+  void RemoveAPoint(const Standard_Integer theIndex)
+  {
+    const Standard_Integer anIdx = Min(theIndex, line->NbPoints());
+    
+    if (anIdx < 1)
+      return;
+
+    if (anIdx <= myTangentIdx)
+    {
+      myTangentIdx--;
+
+      if (myTangentIdx < 1)
+        myTangentIdx = 1;
+    }
+
+    line->RemovePoint(anIdx);
+  }
   
   Standard_EXPORT Standard_Boolean PutToBoundary (const Handle(Adaptor3d_HSurface)& theASurf1, const Handle(Adaptor3d_HSurface)& theASurf2);
   
@@ -140,7 +163,8 @@ public:
 
   Standard_Real MaxStep(Standard_Integer theIndex)
   {
-    Standard_OutOfRange_Raise_if((theIndex < 0) || (theIndex > 3), "");
+    Standard_OutOfRange_Raise_if ((theIndex < 0) || (theIndex > 3),
+                                  "IntWalk_PWalking::MaxStep() - index is out of range");
     return pasInit[theIndex];
   }
 
@@ -177,6 +201,12 @@ protected:
   //! theU1, theV1, theU2 and theV2 parameters are initial parameters in
   //! for used numeric algorithms. If isTheFirst == TRUE then
   //! a point on theASurf1 is searched. Otherwise, the point on theASurf2 is searched.
+  //!
+  //! ATTENTION!!!
+  //!   This method can delete some points from the curve if it is necessary
+  //!   (in order to obtain correct result after insertion).
+  //!   Returns TRUE in case of success adding (i.e. can return FALSE even after
+  //!   removing some points).
   Standard_EXPORT Standard_Boolean SeekPointOnBoundary (const Handle(Adaptor3d_HSurface)& theASurf1,
                                                         const Handle(Adaptor3d_HSurface)& theASurf2,
                                                         const Standard_Real theU1,
@@ -201,8 +231,14 @@ private:
   Standard_Boolean close;
   Standard_Boolean tgfirst;
   Standard_Boolean tglast;
-  Standard_Integer indextg;
+
+  //! Index of point on the surface boundary.
+  //! It is used for transition computation
+  Standard_Integer myTangentIdx;
+
+  //! Tangent to WLine in the point with index myTangentIdx
   gp_Dir tgdir;
+
   Standard_Real fleche;
   Standard_Real pasMax;
   Standard_Real tolconf;

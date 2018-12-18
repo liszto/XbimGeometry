@@ -12,6 +12,7 @@
 // Alternatively, this file may be used under the terms of Open CASCADE
 // commercial license or contractual agreement.
 
+#include <stdio.h>
 #include <IntPatch_Intersection.hxx>
 
 #include <Adaptor3d_HSurface.hxx>
@@ -21,22 +22,18 @@
 #include <IntPatch_GLine.hxx>
 #include <IntPatch_ImpImpIntersection.hxx>
 #include <IntPatch_ImpPrmIntersection.hxx>
-#include <IntPatch_Line.hxx>
-#include <IntPatch_Point.hxx>
 #include <IntPatch_PrmPrmIntersection.hxx>
-#include <IntPatch_RLine.hxx>
 #include <IntPatch_WLine.hxx>
 #include <IntPatch_WLineTool.hxx>
-#include <IntSurf_Quadric.hxx>
-#include <Standard_ConstructionError.hxx>
-#include <Standard_DomainError.hxx>
-#include <Standard_OutOfRange.hxx>
-#include <StdFail_NotDone.hxx>
-#include <IntPatch_LineConstructor.hxx>
 
-#include <stdio.h>
-#define DEBUG 0 
-static const Standard_Integer aNbPointsInALine = 200;
+#include <ProjLib_ProjectOnPlane.hxx>
+#include <Geom_Plane.hxx>
+#include <GeomAdaptor_HSurface.hxx>
+#include <GeomAdaptor_HCurve.hxx>
+#include <ProjLib_ProjectedCurve.hxx>
+#include <Geom2dInt_GInter.hxx>
+#include <Geom2dAdaptor_Curve.hxx>
+#include <ProjLib.hxx>
 
 //======================================================================
 // function: SequenceOfLine
@@ -141,12 +138,36 @@ void IntPatch_Intersection::Perform(const Handle(Adaptor3d_HSurface)&  S1,
 
   switch (S1->GetType())
   { 
-    case GeomAbs_Plane:
-    case GeomAbs_Cylinder:
-    case GeomAbs_Sphere:
-    case GeomAbs_Cone:
-    case GeomAbs_Torus: break;
-    default:
+  case GeomAbs_Plane:
+  case GeomAbs_Cylinder:
+  case GeomAbs_Sphere:
+  case GeomAbs_Cone:
+  case GeomAbs_Torus:
+    break;
+  case GeomAbs_SurfaceOfExtrusion:
+    {
+      gp_Dir aDirection = S1->Direction();
+      gp_Ax3 anAxis(gp::Origin(), aDirection);
+      Handle(Adaptor3d_HCurve) aBasisCurve = S1->BasisCurve();
+      ProjLib_ProjectOnPlane Projector(anAxis);
+      Projector.Load(aBasisCurve, Precision::Confusion());
+      Handle(GeomAdaptor_HCurve) aProjCurve = Projector.GetResult();
+      Handle(Geom_Plane) aPlane = new Geom_Plane(anAxis);
+      Handle(GeomAdaptor_HSurface) aGAHsurf = new GeomAdaptor_HSurface(aPlane);
+      ProjLib_ProjectedCurve aProjectedCurve(aGAHsurf, aProjCurve);
+      Handle(Geom2d_Curve) aPCurve;
+      ProjLib::MakePCurveOfType(aProjectedCurve, aPCurve);
+      Geom2dAdaptor_Curve AC(aPCurve,
+                             aProjectedCurve.FirstParameter(),
+                             aProjectedCurve.LastParameter());
+      Geom2dInt_GInter Intersector(AC,
+                                   Precision::Confusion(),
+                                   Precision::Confusion());
+      if (Intersector.IsDone() && Intersector.IsEmpty())
+        break;
+    }
+    Standard_FALLTHROUGH
+  default:
     {
       IntPatch_PrmPrmIntersection interpp;
       interpp.Perform(S1,D1,TolTang,TolArc,myFleche,myUVMaxStep);
@@ -910,30 +931,19 @@ void IntPatch_Intersection::Perform(const Handle(Adaptor3d_HSurface)&  theS1,
   //                              3. ts1 == ts2 == 0 <Param-Param>
 
   // Geom - Geom
-  const Standard_Boolean RestrictLine = Standard_True;
   if(ts1 == ts2 && ts1 == 1)
   {
     IntSurf_ListOfPntOn2S ListOfPnts;
     ListOfPnts.Clear();
     if(isGeomInt)
     {
-      if(theD1->DomainIsInfinite() || theD2->DomainIsInfinite())
-      {
-        GeomGeomPerfom( theS1, theD1, theS2, theD2, TolArc, 
-                        TolTang, ListOfPnts, RestrictLine,
-                        typs1, typs2, theIsReqToKeepRLine);
-      }
-      else
-      {
-        GeomGeomPerfomTrimSurf( theS1, theD1, theS2, theD2,
-                                TolArc, TolTang, ListOfPnts, RestrictLine,
-                                typs1, typs2, theIsReqToKeepRLine);
-      }
+      GeomGeomPerfom(theS1, theD1, theS2, theD2, TolArc, TolTang,
+                     ListOfPnts, typs1, typs2, theIsReqToKeepRLine);
     }
     else
     {
       ParamParamPerfom(theS1, theD1, theS2, theD2, 
-              TolArc, TolTang, ListOfPnts, RestrictLine, typs1, typs2);
+              TolArc, TolTang, ListOfPnts, typs1, typs2);
     }
   }
 
@@ -950,7 +960,7 @@ void IntPatch_Intersection::Perform(const Handle(Adaptor3d_HSurface)&  theS1,
     ListOfPnts.Clear();
 
     ParamParamPerfom(theS1, theD1, theS2, theD2, TolArc,
-                        TolTang, ListOfPnts, RestrictLine, typs1, typs2);
+                        TolTang, ListOfPnts, typs1, typs2);
   }
 
   if(!theIsReqToPostWLProc)
@@ -963,8 +973,11 @@ void IntPatch_Intersection::Perform(const Handle(Adaptor3d_HSurface)&  theS1,
     if(aWL.IsNull())
       continue;
 
+    if (!aWL->IsPurgingAllowed())
+      continue;
+
     Handle(IntPatch_WLine) aRW =
-      IntPatch_WLineTool::ComputePurgedWLine(aWL, theS1, theS2, theD1, theD2, RestrictLine);
+      IntPatch_WLineTool::ComputePurgedWLine(aWL, theS1, theS2, theD1, theD2);
 
     if(aRW.IsNull())
       continue;
@@ -985,7 +998,6 @@ void IntPatch_Intersection::Perform(const Handle(Adaptor3d_HSurface)&  theS1,
                                     const Standard_Real TolArc,
                                     const Standard_Real TolTang,
                                     IntSurf_ListOfPntOn2S& ListOfPnts,
-                                    const Standard_Boolean RestrictLine,
                                     const Standard_Boolean isGeomInt,
                                     const Standard_Boolean theIsReqToKeepRLine,
                                     const Standard_Boolean theIsReqToPostWLProc)
@@ -1169,7 +1181,7 @@ void IntPatch_Intersection::Perform(const Handle(Adaptor3d_HSurface)&  theS1,
   if(!isGeomInt)
   {
     ParamParamPerfom(theS1, theD1, theS2, theD2, 
-                TolArc, TolTang, ListOfPnts, RestrictLine, typs1, typs2);
+                TolArc, TolTang, ListOfPnts, typs1, typs2);
   }
   else if(ts1 != ts2)
   {
@@ -1178,20 +1190,12 @@ void IntPatch_Intersection::Perform(const Handle(Adaptor3d_HSurface)&  theS1,
   else if (ts1 == 0)
   {
     ParamParamPerfom(theS1, theD1, theS2, theD2,
-                TolArc, TolTang, ListOfPnts, RestrictLine, typs1, typs2);
+                TolArc, TolTang, ListOfPnts, typs1, typs2);
   }
   else if(ts1 == 1)
   {
-    if(theD1->DomainIsInfinite() || theD2->DomainIsInfinite())
-    {
-      GeomGeomPerfom(theS1, theD1, theS2, theD2, TolArc, 
-                      TolTang, ListOfPnts, RestrictLine, typs1, typs2, theIsReqToKeepRLine);
-    }
-    else
-    {
-      GeomGeomPerfomTrimSurf(theS1, theD1, theS2, theD2,
-              TolArc, TolTang, ListOfPnts, RestrictLine, typs1, typs2, theIsReqToKeepRLine);
-    }
+    GeomGeomPerfom(theS1, theD1, theS2, theD2, TolArc, TolTang,
+                   ListOfPnts, typs1, typs2, theIsReqToKeepRLine);
   }
 
   if(!theIsReqToPostWLProc)
@@ -1208,7 +1212,7 @@ void IntPatch_Intersection::Perform(const Handle(Adaptor3d_HSurface)&  theS1,
       continue;
 
     Handle(IntPatch_WLine) aRW = 
-      IntPatch_WLineTool::ComputePurgedWLine(aWL, theS1, theS2, theD1, theD2, RestrictLine);
+      IntPatch_WLineTool::ComputePurgedWLine(aWL, theS1, theS2, theD1, theD2);
 
     if(aRW.IsNull())
       continue;
@@ -1229,7 +1233,6 @@ void IntPatch_Intersection::ParamParamPerfom(const Handle(Adaptor3d_HSurface)&  
                                              const Standard_Real TolArc,
                                              const Standard_Real TolTang,
                                              IntSurf_ListOfPntOn2S& ListOfPnts,
-                                             const Standard_Boolean RestrictLine,
                                              const GeomAbs_SurfaceType typs1,
                                              const GeomAbs_SurfaceType typs2)
 {
@@ -1239,10 +1242,10 @@ void IntPatch_Intersection::ParamParamPerfom(const Handle(Adaptor3d_HSurface)&  
     Standard_Boolean ClearFlag = Standard_True;
     if(!ListOfPnts.IsEmpty())
     {
-      interpp.Perform(theS1,theD1,theS2,theD2,TolTang,TolArc,myFleche,myUVMaxStep, ListOfPnts, RestrictLine);
+      interpp.Perform(theS1,theD1,theS2,theD2,TolTang,TolArc,myFleche,myUVMaxStep, ListOfPnts);
       ClearFlag = Standard_False;
     }
-    interpp.Perform(theS1,theD1,theS2,theD2,TolTang,TolArc,myFleche,myUVMaxStep,ClearFlag);   //double call!!!!!!!
+    interpp.Perform(theS1,theD1,theS2,theD2,TolTang,TolArc,myFleche,myUVMaxStep,ClearFlag);
   }
   else if((theD1->DomainIsInfinite()) ^ (theD2->DomainIsInfinite()))
   {
@@ -1339,149 +1342,99 @@ void IntPatch_Intersection::GeomGeomPerfom(const Handle(Adaptor3d_HSurface)& the
                                            const Standard_Real TolArc,
                                            const Standard_Real TolTang,
                                            IntSurf_ListOfPntOn2S& ListOfPnts,
-                                           const Standard_Boolean RestrictLine,
                                            const GeomAbs_SurfaceType theTyps1,
                                            const GeomAbs_SurfaceType theTyps2,
                                            const Standard_Boolean theIsReqToKeepRLine)
 {
   IntPatch_ImpImpIntersection interii(theS1,theD1,theS2,theD2,
                                       myTolArc,myTolTang, theIsReqToKeepRLine);
-  const Standard_Boolean anIS = interii.IsDone();
-  if (anIS)
+
+  if (!interii.IsDone())
   {
-    done = anIS;
-    empt = interii.IsEmpty();
-    if (!empt)
+    done = Standard_False;
+    ParamParamPerfom(theS1, theD1, theS2, theD2, 
+                TolArc, TolTang, ListOfPnts, theTyps1, theTyps2);
+    return;
+  }
+
+  done = (interii.GetStatus() == IntPatch_ImpImpIntersection::IntStatus_OK);
+  empt = interii.IsEmpty();
+
+  if(empt)
+  {
+    return;
+  }
+
+  const Standard_Integer aNbPointsInALine = 200;
+
+  tgte = interii.TangentFaces();
+  if (tgte)
+    oppo = interii.OppositeFaces();
+
+  Standard_Boolean isWLExist = Standard_False;
+  IntPatch_ALineToWLine AToW(theS1, theS2, aNbPointsInALine);
+
+  for (Standard_Integer i = 1; i <= interii.NbLines(); i++)
+  {
+    const Handle(IntPatch_Line)& line = interii.Line(i);
+    if (line->ArcType() == IntPatch_Analytic)
     {
-      tgte = interii.TangentFaces();
-      if (tgte)
-        oppo = interii.OppositeFaces();
-
-      Standard_Boolean isQuadSet = Standard_False;
-      IntSurf_Quadric Quad1,Quad2;
-
-      for (Standard_Integer i = 1; i <= interii.NbLines(); i++)
+      isWLExist = Standard_True;
+      AToW.MakeWLine(Handle(IntPatch_ALine)::DownCast(line), slin);
+    }
+    else
+    {
+      if (line->ArcType() == IntPatch_Walking)
       {
-        const Handle(IntPatch_Line)& line = interii.Line(i);
-        if (line->ArcType() == IntPatch_Analytic)
-        {
-          if(!isQuadSet)
-          {
-            isQuadSet = Standard_True;
-            
-            const GeomAbs_SurfaceType aTyps1 = theS1->GetType();
-            const GeomAbs_SurfaceType aTyps2 = theS2->GetType();
-
-            switch(aTyps1)
-            {
-            case GeomAbs_Plane:
-              Quad1.SetValue(theS1->Plane());
-              break;
-
-            case GeomAbs_Cylinder:
-              Quad1.SetValue(theS1->Cylinder());
-              break;
-
-            case GeomAbs_Sphere:
-              Quad1.SetValue(theS1->Sphere());
-              break;
-
-            case GeomAbs_Cone:
-              Quad1.SetValue(theS1->Cone());
-              break;
-
-            case GeomAbs_Torus:
-              Quad1.SetValue(theS1->Torus());
-              break;
-
-            default:
-              isQuadSet = Standard_False;
-              break;
-            }
-
-            switch(aTyps2)
-            {
-            case GeomAbs_Plane:
-              Quad2.SetValue(theS2->Plane());
-              break;
-            case GeomAbs_Cylinder:
-              Quad2.SetValue(theS2->Cylinder());
-              break;
-
-            case GeomAbs_Sphere:
-              Quad2.SetValue(theS2->Sphere());
-              break;
-
-            case GeomAbs_Cone:
-              Quad2.SetValue(theS2->Cone());
-              break;
-
-            case GeomAbs_Torus:
-              Quad2.SetValue(theS2->Torus());
-              break;
-
-            default:
-              isQuadSet = Standard_False;
-              break;
-            }
-
-            if(!isQuadSet)
-            {
-              break;
-            }
-          }
-
-          IntPatch_ALineToWLine AToW(Quad1,Quad2,0.01,0.05,aNbPointsInALine);
-          Handle(IntPatch_WLine) wlin = 
-                      AToW.MakeWLine(Handle(IntPatch_ALine)::DownCast(line));
-          wlin->EnablePurging(Standard_False);
-          slin.Append(wlin);
-        }
-        else
-          slin.Append(line);
+        Handle(IntPatch_WLine)::DownCast(line)->EnablePurging(Standard_False);
       }
 
-      if(isQuadSet)
-      {
-        Bnd_Box2d aBx1, aBx2;
-        const Standard_Real aU1F = theS1->FirstUParameter(),
-                            aU1L = theS1->LastUParameter(),
-                            aV1F = theS1->FirstVParameter(),
-                            aV1L = theS1->LastVParameter(),
-                            aU2F = theS2->FirstUParameter(),
-                            aU2L = theS2->LastUParameter(),
-                            aV2F = theS2->FirstVParameter(),
-                            aV2L = theS2->LastVParameter();
-        aBx1.Add(gp_Pnt2d(aU1F, aV1F));
-        aBx1.Add(gp_Pnt2d(aU1L, aV1F));
-        aBx1.Add(gp_Pnt2d(aU1L, aV1L));
-        aBx1.Add(gp_Pnt2d(aU1F, aV1L));
-        aBx2.Add(gp_Pnt2d(aU2F, aV2F));
-        aBx2.Add(gp_Pnt2d(aU2L, aV2F));
-        aBx2.Add(gp_Pnt2d(aU2L, aV2L));
-        aBx2.Add(gp_Pnt2d(aU2F, aV2L));
-
-        aBx1.Enlarge(Precision::PConfusion());
-        aBx2.Enlarge(Precision::PConfusion());
-
-        IntPatch_WLineTool::
-          ExtendTwoWlinesToEachOther(slin, Quad1, Quad2, TolTang,
-                                     theS1->IsUPeriodic()? theS1->UPeriod() : 0.0,
-                                     theS2->IsUPeriodic()? theS2->UPeriod() : 0.0,
-                                     theS1->IsVPeriodic()? theS1->VPeriod() : 0.0,
-                                     theS2->IsVPeriodic()? theS2->VPeriod() : 0.0,
-                                     aBx1, aBx2);
-      }
-
-      for (Standard_Integer i = 1; i <= interii.NbPnts(); i++)
-      {
-        spnt.Append(interii.Point(i));
-      }
+      if((line->ArcType() != IntPatch_Restriction) || theIsReqToKeepRLine)
+        slin.Append(line);
     }
   }
-  else
-    ParamParamPerfom(theS1, theD1, theS2, theD2, 
-                TolArc, TolTang, ListOfPnts, RestrictLine, theTyps1, theTyps2);
+
+  for (Standard_Integer i = 1; i <= interii.NbPnts(); i++)
+  {
+    spnt.Append(interii.Point(i));
+  }
+
+  if((theTyps1 == GeomAbs_Cylinder) && (theTyps2 == GeomAbs_Cylinder))
+  {
+    IntPatch_WLineTool::JoinWLines(slin, spnt, theS1, theS2, TolTang);
+  }
+
+  if(isWLExist)
+  {
+    Bnd_Box2d aBx1, aBx2;
+    const Standard_Real aU1F = theS1->FirstUParameter(),
+                        aU1L = theS1->LastUParameter(),
+                        aV1F = theS1->FirstVParameter(),
+                        aV1L = theS1->LastVParameter(),
+                        aU2F = theS2->FirstUParameter(),
+                        aU2L = theS2->LastUParameter(),
+                        aV2F = theS2->FirstVParameter(),
+                        aV2L = theS2->LastVParameter();
+    aBx1.Add(gp_Pnt2d(aU1F, aV1F));
+    aBx1.Add(gp_Pnt2d(aU1L, aV1F));
+    aBx1.Add(gp_Pnt2d(aU1L, aV1L));
+    aBx1.Add(gp_Pnt2d(aU1F, aV1L));
+    aBx2.Add(gp_Pnt2d(aU2F, aV2F));
+    aBx2.Add(gp_Pnt2d(aU2L, aV2F));
+    aBx2.Add(gp_Pnt2d(aU2L, aV2L));
+    aBx2.Add(gp_Pnt2d(aU2F, aV2L));
+
+    aBx1.Enlarge(Precision::PConfusion());
+    aBx2.Enlarge(Precision::PConfusion());
+
+    const Standard_Real
+            anArrOfPeriod[4] = {theS1->IsUPeriodic()? theS1->UPeriod() : 0.0,
+                                theS1->IsVPeriodic()? theS1->VPeriod() : 0.0,
+                                theS2->IsUPeriodic()? theS2->UPeriod() : 0.0,
+                                theS2->IsVPeriodic()? theS2->VPeriod() : 0.0};
+    IntPatch_WLineTool::ExtendTwoWLines(slin, theS1, theS2, TolTang,
+                                        anArrOfPeriod, aBx1, aBx2);
+  }
 }
 
 //=======================================================================
@@ -1568,84 +1521,6 @@ void IntPatch_Intersection::
   }
 }
 
-//=======================================================================
-//function : GeomGeomPerfomTrimSurf
-//purpose  : This function returns ready walking-line (which is not need
-//            in convertation) as an intersection line between two
-//            trimmed surfaces.
-//=======================================================================
-void IntPatch_Intersection::
-  GeomGeomPerfomTrimSurf( const Handle(Adaptor3d_HSurface)& theS1,
-                          const Handle(Adaptor3d_TopolTool)& theD1,
-                          const Handle(Adaptor3d_HSurface)& theS2,
-                          const Handle(Adaptor3d_TopolTool)& theD2,
-                          const Standard_Real theTolArc,
-                          const Standard_Real theTolTang,
-                          IntSurf_ListOfPntOn2S& theListOfPnts,
-                          const Standard_Boolean RestrictLine,
-                          const GeomAbs_SurfaceType theTyps1,
-                          const GeomAbs_SurfaceType theTyps2,
-                          const Standard_Boolean theIsReqToKeepRLine)
-{
-  IntSurf_Quadric Quad1,Quad2;
-
-  if((theTyps1 == GeomAbs_Cylinder) && (theTyps2 == GeomAbs_Cylinder))
-  {
-    IntPatch_ImpImpIntersection anInt;
-    anInt.Perform(theS1, theD1, theS2, theD2, myTolArc,
-                  myTolTang, Standard_True, theIsReqToKeepRLine);
-
-    done = anInt.IsDone();
-
-    if(done)
-    {
-      empt = anInt.IsEmpty();
-      if (!empt)
-      {
-        tgte = anInt.TangentFaces();
-        if (tgte)
-          oppo = anInt.OppositeFaces();
-
-        const Standard_Integer aNbLin = anInt.NbLines();
-        const Standard_Integer aNbPts = anInt.NbPnts();
-
-        for(Standard_Integer aLID = 1; aLID <= aNbLin; aLID++)
-        {
-          const Handle(IntPatch_Line)& aLine = anInt.Line(aLID);
-          slin.Append(aLine);
-        }
-
-        for(Standard_Integer aPID = 1; aPID <= aNbPts; aPID++)
-        {
-          const IntPatch_Point& aPoint = anInt.Point(aPID);
-          spnt.Append(aPoint);
-        }
-
-        IntPatch_WLineTool::JoinWLines( slin, spnt, theTolTang,
-                                        theS1->IsUPeriodic()? theS1->UPeriod() : 0.0,
-                                        theS2->IsUPeriodic()? theS2->UPeriod() : 0.0,
-                                        theS1->IsVPeriodic()? theS1->VPeriod() : 0.0,
-                                        theS2->IsVPeriodic()? theS2->VPeriod() : 0.0,
-                                        theS1->FirstUParameter(),
-                                        theS1->LastUParameter(),
-                                        theS1->FirstVParameter(),
-                                        theS1->LastVParameter(),
-                                        theS2->FirstUParameter(),
-                                        theS2->LastUParameter(),
-                                        theS2->FirstVParameter(),
-                                        theS2->LastVParameter());
-      }
-    }
-  }
-  else
-  {
-    GeomGeomPerfom(theS1, theD1, theS2, theD2,
-            theTolArc, theTolTang, theListOfPnts,
-            RestrictLine, theTyps1, theTyps2, theIsReqToKeepRLine);
-  }
-}
-
-
 void IntPatch_Intersection::Perform(const Handle(Adaptor3d_HSurface)&  S1,
                                     const Handle(Adaptor3d_TopolTool)& D1,
                                     const Handle(Adaptor3d_HSurface)&  S2,
@@ -1721,8 +1596,11 @@ void IntPatch_Intersection::Perform(const Handle(Adaptor3d_HSurface)&  S1,
     if(aWL.IsNull())
       continue;
 
+    if (!aWL->IsPurgingAllowed())
+      continue;
+
     Handle(IntPatch_WLine) aRW =
-      IntPatch_WLineTool::ComputePurgedWLine(aWL, S1, S2, D1, D2, Standard_True);
+      IntPatch_WLineTool::ComputePurgedWLine(aWL, S1, S2, D1, D2);
 
     if(aRW.IsNull())
       continue;

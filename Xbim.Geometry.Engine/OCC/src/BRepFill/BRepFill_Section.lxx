@@ -14,6 +14,11 @@
 // Alternatively, this file may be used under the terms of Open CASCADE
 // commercial license or contractual agreement.
 
+inline const TopoDS_Shape& BRepFill_Section::OriginalShape() const
+{
+  return myOriginalShape; 
+}
+
 inline const TopoDS_Wire& BRepFill_Section::Wire() const
 {
   return wire; 
@@ -27,6 +32,11 @@ inline const TopoDS_Vertex& BRepFill_Section::Vertex() const
 inline Standard_Boolean  BRepFill_Section::IsLaw() const
 {
   return islaw;
+}
+
+inline Standard_Boolean  BRepFill_Section::IsPunctual() const
+{
+  return ispunctual;
 }
 
 inline Standard_Boolean  BRepFill_Section::WithContact() const

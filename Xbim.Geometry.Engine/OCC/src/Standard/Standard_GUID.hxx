@@ -17,7 +17,6 @@
 #ifndef _Standard_GUID_HeaderFile
 #define _Standard_GUID_HeaderFile
 
-#include <Standard.hxx>
 #include <Standard_DefineAlloc.hxx>
 #include <Standard_Handle.hxx>
 
@@ -32,7 +31,8 @@
 #include <Standard_Boolean.hxx>
 #include <Standard_OStream.hxx>
 
-
+#define Standard_GUID_SIZE 36
+#define Standard_GUID_SIZE_ALLOC Standard_GUID_SIZE+1
 
 class Standard_GUID 
 {

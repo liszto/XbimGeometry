@@ -66,7 +66,7 @@ Geom2dGcc_Circ2d2TanOnIter (const GccEnt_QualifiedLin&  Qualified1 ,
                                 Qualified1.IsOutside() || Qualified1.IsUnqualified()) ||
                                 !(Qualified2.IsEnclosed() || Qualified2.IsEnclosing() || 
                                 Qualified2.IsOutside() || Qualified2.IsUnqualified())) {
-                                  GccEnt_BadQualifier::Raise();
+                                  throw GccEnt_BadQualifier();
                                   return;
                               }
                               gp_Dir2d dirx(1.,0.);
@@ -95,7 +95,7 @@ Geom2dGcc_Circ2d2TanOnIter (const GccEnt_QualifiedLin&  Qualified1 ,
                               gp_Pnt2d point2 = Geom2dGcc_CurveTool::Value(Cu2,Param2);
                               gp_Pnt2d point3 = ElCLib::Value(Param3,OnLine);
                               Ufirst(4) = (point3.Distance(point2)+point3.Distance(point1))/2.;
-                              Geom2dGcc_FunctionTanCuCuOnCu Func(L1,Cu2,OnLine,Ufirst(4));
+                              Geom2dGcc_FunctionTanCuCuOnCu Func(L1,Cu2,OnLine,Max(Ufirst(4), Tol));
                               math_FunctionSetRoot Root(Func, tol);
                               Root.Perform(Func, Ufirst, Umin, Umax);
                               Func.Value(Ufirst,Umin);
@@ -167,7 +167,7 @@ Geom2dGcc_Circ2d2TanOnIter (const Geom2dGcc_QCurve& Qualified1 ,
                                 Qualified1.IsOutside() || Qualified1.IsUnqualified()) ||
                                 !(Qualified2.IsEnclosed() || Qualified2.IsEnclosing() || 
                                 Qualified2.IsOutside() || Qualified2.IsUnqualified())) {
-                                  GccEnt_BadQualifier::Raise();
+                                  throw GccEnt_BadQualifier();
                                   return;
                               }
                               Standard_Real Tol = Abs(Tolerance);
@@ -180,7 +180,7 @@ Geom2dGcc_Circ2d2TanOnIter (const Geom2dGcc_QCurve& Qualified1 ,
                               math_Vector tol(1,4);
                               Umin(1) = Geom2dGcc_CurveTool::FirstParameter(Cu1);
                               Umin(2) = Geom2dGcc_CurveTool::FirstParameter(Cu2);
-                              Umin(3) = RealFirst();
+                              Umin(3) = RealFirst();  
                               Umin(4) = 0.;
                               Umax(1) = Geom2dGcc_CurveTool::LastParameter(Cu1);
                               Umax(2) = Geom2dGcc_CurveTool::LastParameter(Cu2);
@@ -197,7 +197,7 @@ Geom2dGcc_Circ2d2TanOnIter (const Geom2dGcc_QCurve& Qualified1 ,
                               gp_Pnt2d point2 = Geom2dGcc_CurveTool::Value(Cu2,Param2);
                               gp_Pnt2d point3 = ElCLib::Value(Param3,OnLine);
                               Ufirst(4) = (point3.Distance(point2)+point3.Distance(point1))/2.;
-                              Geom2dGcc_FunctionTanCuCuOnCu Func(Cu1,Cu2,OnLine,Ufirst(4));
+                              Geom2dGcc_FunctionTanCuCuOnCu Func(Cu1,Cu2,OnLine,Max(Ufirst(4), Tol));
                               math_FunctionSetRoot Root(Func, tol);
                               Root.Perform(Func, Ufirst, Umin, Umax);
                               Func.Value(Ufirst,Umin);
@@ -210,6 +210,10 @@ Geom2dGcc_Circ2d2TanOnIter (const Geom2dGcc_QCurve& Qualified1 ,
                                 gp_Pnt2d point3new(OnLine.Location().XY()+Ufirst(3)*Tan3.XY());
                                 Standard_Real dist1 = point3new.Distance(point1);
                                 Standard_Real dist2 = point3new.Distance(point2);
+                                if((dist1+dist2)/2. < Tol)
+                                {
+                                  return;
+                                }
                                 if ( Abs(dist1-dist2)/2. <= Tol) {
                                   cirsol = gp_Circ2d(gp_Ax2d(point3new,dirx),(dist1+dist2)/2.);
                                   Standard_Real normetan1 = Tan1.Magnitude();
@@ -270,7 +274,7 @@ Geom2dGcc_Circ2d2TanOnIter (const Geom2dGcc_QCurve& Qualified1 ,
                               WellDone = Standard_False;
                               if (!(Qualified1.IsEnclosed() || Qualified1.IsEnclosing() || 
                                 Qualified1.IsOutside() || Qualified1.IsUnqualified())) {
-                                  GccEnt_BadQualifier::Raise();
+                                  throw GccEnt_BadQualifier();
                                   return;
                               }
                               Standard_Real Tol = Abs(Tolerance);
@@ -294,7 +298,7 @@ Geom2dGcc_Circ2d2TanOnIter (const Geom2dGcc_QCurve& Qualified1 ,
                               gp_Pnt2d point1 = Geom2dGcc_CurveTool::Value(Cu1,Param1);
                               gp_Pnt2d point3 = ElCLib::Value(Param2,OnLine);
                               Ufirst(3) = (point3.Distance(Point2)+point3.Distance(point1))/2.;
-                              Geom2dGcc_FunctionTanCuCuOnCu Func(Cu1,Point2,OnLine,Ufirst(3));
+                              Geom2dGcc_FunctionTanCuCuOnCu Func(Cu1,Point2,OnLine,Max(Ufirst(3), Tol));
                               math_FunctionSetRoot Root(Func, tol);
                               Root.Perform(Func, Ufirst, Umin, Umax);
                               Func.Value(Ufirst,Umin);
@@ -357,7 +361,7 @@ Geom2dGcc_Circ2d2TanOnIter (const GccEnt_QualifiedCirc& Qualified1 ,
                                 Qualified1.IsOutside() || Qualified1.IsUnqualified()) ||
                                 !(Qualified2.IsEnclosed() || Qualified2.IsEnclosing() || 
                                 Qualified2.IsOutside() || Qualified2.IsUnqualified())) {
-                                  GccEnt_BadQualifier::Raise();
+                                  throw GccEnt_BadQualifier();
                                   return;
                               }
                               Standard_Real Tol = Abs(Tolerance);
@@ -388,7 +392,7 @@ Geom2dGcc_Circ2d2TanOnIter (const GccEnt_QualifiedCirc& Qualified1 ,
                               gp_Pnt2d point2 = Geom2dGcc_CurveTool::Value(Cu2,Param2);
                               gp_Pnt2d point3 = ElCLib::Value(Param3,OnLine);
                               Ufirst(4) = (point3.Distance(point2)+point3.Distance(point1))/2.;
-                              Geom2dGcc_FunctionTanCuCuOnCu Func(C1,Cu2,OnLine,Ufirst(4));
+                              Geom2dGcc_FunctionTanCuCuOnCu Func(C1,Cu2,OnLine,Max(Ufirst(4), Tol));
                               math_FunctionSetRoot Root(Func, tol);
                               Root.Perform(Func, Ufirst, Umin, Umax);
                               Func.Value(Ufirst,Umin);
@@ -465,7 +469,7 @@ Geom2dGcc_Circ2d2TanOnIter (const GccEnt_QualifiedCirc& Qualified1 ,
                                 Qualified1.IsOutside() || Qualified1.IsUnqualified()) ||
                                 !(Qualified2.IsEnclosed() || Qualified2.IsEnclosing() || 
                                 Qualified2.IsOutside() || Qualified2.IsUnqualified())) {
-                                  GccEnt_BadQualifier::Raise();
+                                  throw GccEnt_BadQualifier();
                                   return;
                               }
                               Standard_Real Tol = Abs(Tolerance);
@@ -496,7 +500,7 @@ Geom2dGcc_Circ2d2TanOnIter (const GccEnt_QualifiedCirc& Qualified1 ,
                               gp_Pnt2d point2 = Geom2dGcc_CurveTool::Value(Cu2,Param2);
                               gp_Pnt2d point3 = ElCLib::Value(Param3,OnCirc);
                               Ufirst(4) = (point3.Distance(point2)+point3.Distance(point1))/2.;
-                              Geom2dGcc_FunctionTanCuCuOnCu Func(C1,Cu2,OnCirc,Ufirst(4));
+                              Geom2dGcc_FunctionTanCuCuOnCu Func(C1,Cu2,OnCirc,Max(Ufirst(4), Tol));
                               math_FunctionSetRoot Root(Func, tol);
                               Root.Perform(Func, Ufirst, Umin, Umax);
                               Func.Value(Ufirst,Umin);
@@ -571,7 +575,7 @@ Geom2dGcc_Circ2d2TanOnIter (const GccEnt_QualifiedLin&  Qualified1 ,
                                 Qualified1.IsOutside() || Qualified1.IsUnqualified()) ||
                                 !(Qualified2.IsEnclosed() || Qualified2.IsEnclosing() || 
                                 Qualified2.IsOutside() || Qualified2.IsUnqualified())) {
-                                  GccEnt_BadQualifier::Raise();
+                                  throw GccEnt_BadQualifier();
                                   return;
                               }
                               Standard_Real Tol = Abs(Tolerance);
@@ -601,7 +605,7 @@ Geom2dGcc_Circ2d2TanOnIter (const GccEnt_QualifiedLin&  Qualified1 ,
                               gp_Pnt2d point2 = Geom2dGcc_CurveTool::Value(Cu2,Param2);
                               gp_Pnt2d point3 = ElCLib::Value(Param3,OnCirc);
                               Ufirst(4) = (point3.Distance(point2)+point3.Distance(point1))/2.;
-                              Geom2dGcc_FunctionTanCuCuOnCu Func(L1,Cu2,OnCirc,Ufirst(4));
+                              Geom2dGcc_FunctionTanCuCuOnCu Func(L1,Cu2,OnCirc,Max(Ufirst(4), Tol));
                               math_FunctionSetRoot Root(Func, tol);
                               Root.Perform(Func, Ufirst, Umin, Umax);
                               Func.Value(Ufirst,Umin);
@@ -675,7 +679,7 @@ Geom2dGcc_Circ2d2TanOnIter (const Geom2dGcc_QCurve& Qualified1 ,
                                 Qualified1.IsOutside() || Qualified1.IsUnqualified()) ||
                                 !(Qualified2.IsEnclosed() || Qualified2.IsEnclosing() || 
                                 Qualified2.IsOutside() || Qualified2.IsUnqualified())) {
-                                  GccEnt_BadQualifier::Raise();
+                                  throw GccEnt_BadQualifier();
                                   return;
                               }
                               Standard_Real Tol = Abs(Tolerance);
@@ -706,7 +710,7 @@ Geom2dGcc_Circ2d2TanOnIter (const Geom2dGcc_QCurve& Qualified1 ,
                               Standard_Real R1 = OnCirc.Radius();
                               gp_Pnt2d point3(OnCirc.Location().XY()+R1*gp_XY(Cos(Param3),Sin(Param3)));
                               Ufirst(4) = (point3.Distance(point2)+point3.Distance(point1))/2.;
-                              Geom2dGcc_FunctionTanCuCuOnCu Func(Cu1,Cu2,OnCirc,Ufirst(4));
+                              Geom2dGcc_FunctionTanCuCuOnCu Func(Cu1,Cu2,OnCirc,Max(Ufirst(4), Tol));
                               math_FunctionSetRoot Root(Func, tol);
                               Root.Perform(Func, Ufirst, Umin, Umax);
                               Func.Value(Ufirst,Umin);
@@ -783,7 +787,7 @@ Geom2dGcc_Circ2d2TanOnIter (const Geom2dGcc_QCurve&  Qualified1 ,
                               WellDone = Standard_False;
                               if (!(Qualified1.IsEnclosed() || Qualified1.IsEnclosing() || 
                                 Qualified1.IsOutside() || Qualified1.IsUnqualified())) {
-                                  GccEnt_BadQualifier::Raise();
+                                  throw GccEnt_BadQualifier();
                                   return;
                               }
                               Standard_Real Tol = Abs(Tolerance);
@@ -807,7 +811,7 @@ Geom2dGcc_Circ2d2TanOnIter (const Geom2dGcc_QCurve&  Qualified1 ,
                               gp_Pnt2d point1 = Geom2dGcc_CurveTool::Value(Cu1,Param1);
                               gp_Pnt2d point3 = ElCLib::Value(Param2,OnCirc);
                               Ufirst(3) = (point3.Distance(Point2)+point3.Distance(point1))/2.;
-                              Geom2dGcc_FunctionTanCuCuOnCu Func(Cu1,Point2,OnCirc,Ufirst(3));
+                              Geom2dGcc_FunctionTanCuCuOnCu Func(Cu1,Point2,OnCirc,Max(Ufirst(3), Tol));
                               math_FunctionSetRoot Root(Func, tol);
                               Root.Perform(Func, Ufirst, Umin, Umax);
                               Func.Value(Ufirst,Umin);
@@ -872,7 +876,7 @@ Geom2dGcc_Circ2d2TanOnIter (const Geom2dGcc_QCurve& Qualified1 ,
                                 Qualified1.IsOutside() || Qualified1.IsUnqualified()) ||
                                 !(Qualified2.IsEnclosed() || Qualified2.IsEnclosing() || 
                                 Qualified2.IsOutside() || Qualified2.IsUnqualified())) {
-                                  GccEnt_BadQualifier::Raise();
+                                  throw GccEnt_BadQualifier();
                                   return;
                               }
                               gp_Dir2d dirx(1.,0.);
@@ -901,7 +905,7 @@ Geom2dGcc_Circ2d2TanOnIter (const Geom2dGcc_QCurve& Qualified1 ,
                               gp_Pnt2d point2 = Geom2dGcc_CurveTool::Value(Cu2,Param2);
                               gp_Pnt2d point3 = Geom2dGcc_CurveTool::Value(OnCurv,Param3);
                               Ufirst(4) = (point3.Distance(point2)+point3.Distance(point1))/2.;
-                              Geom2dGcc_FunctionTanCuCuOnCu Func(Cu1,Cu2,OnCurv,Ufirst(4));
+                              Geom2dGcc_FunctionTanCuCuOnCu Func(Cu1,Cu2,OnCurv,Max(Ufirst(4), Tol));
                               math_FunctionSetRoot Root(Func, tol);
                               Root.Perform(Func, Ufirst, Umin, Umax);
                               Func.Value(Ufirst,Umin);
@@ -977,7 +981,7 @@ Geom2dGcc_Circ2d2TanOnIter (const GccEnt_QualifiedCirc& Qualified1 ,
                                 Qualified1.IsOutside() || Qualified1.IsUnqualified()) ||
                                 !(Qualified2.IsEnclosed() || Qualified2.IsEnclosing() || 
                                 Qualified2.IsOutside() || Qualified2.IsUnqualified())) {
-                                  GccEnt_BadQualifier::Raise();
+                                  throw GccEnt_BadQualifier();
                                   return;
                               }
                               Standard_Real Tol = Abs(Tolerance);
@@ -1007,7 +1011,7 @@ Geom2dGcc_Circ2d2TanOnIter (const GccEnt_QualifiedCirc& Qualified1 ,
                               gp_Pnt2d point2 = Geom2dGcc_CurveTool::Value(Cu2,Param2);
                               gp_Pnt2d point3 = Geom2dGcc_CurveTool::Value(OnCurv,ParamOn);
                               Ufirst(4) = (point3.Distance(point2)+point3.Distance(point1))/2.;
-                              Geom2dGcc_FunctionTanCuCuOnCu Func(C1,Cu2,OnCurv,Ufirst(4));
+                              Geom2dGcc_FunctionTanCuCuOnCu Func(C1,Cu2,OnCurv,Max(Ufirst(4), Tol));
                               math_FunctionSetRoot Root(Func, tol);
                               Root.Perform(Func, Ufirst, Umin, Umax);
                               Func.Value(Ufirst,Umin);
@@ -1079,7 +1083,7 @@ Geom2dGcc_Circ2d2TanOnIter (const GccEnt_QualifiedLin&  Qualified1 ,
                                 Qualified1.IsOutside() || Qualified1.IsUnqualified()) ||
                                 !(Qualified2.IsEnclosed() || Qualified2.IsEnclosing() || 
                                 Qualified2.IsOutside() || Qualified2.IsUnqualified())) {
-                                  GccEnt_BadQualifier::Raise();
+                                  throw GccEnt_BadQualifier();
                                   return;
                               }
                               Standard_Real Tol = Abs(Tolerance);
@@ -1109,7 +1113,7 @@ Geom2dGcc_Circ2d2TanOnIter (const GccEnt_QualifiedLin&  Qualified1 ,
                               gp_Pnt2d point2 = Geom2dGcc_CurveTool::Value(Cu2,Param2);
                               gp_Pnt2d point3 = Geom2dGcc_CurveTool::Value(OnCurv,ParamOn);
                               Ufirst(4) = (point3.Distance(point2)+point3.Distance(point1))/2.;
-                              Geom2dGcc_FunctionTanCuCuOnCu Func(L1,Cu2,OnCurv,Ufirst(4));
+                              Geom2dGcc_FunctionTanCuCuOnCu Func(L1,Cu2,OnCurv,Max(Ufirst(4), Tol));
                               math_FunctionSetRoot Root(Func, tol);
                               Root.Perform(Func, Ufirst, Umin, Umax);
                               Func.Value(Ufirst,Umin);
@@ -1177,7 +1181,7 @@ Geom2dGcc_Circ2d2TanOnIter (const Geom2dGcc_QCurve&    Qualified1 ,
   WellDone = Standard_False;
   if (!(Qualified1.IsEnclosed() || Qualified1.IsEnclosing() || 
     Qualified1.IsOutside() || Qualified1.IsUnqualified())) {
-      GccEnt_BadQualifier::Raise();
+      throw GccEnt_BadQualifier();
       return;
   }
   Standard_Real Tol = Abs(Tolerance);
@@ -1201,7 +1205,7 @@ Geom2dGcc_Circ2d2TanOnIter (const Geom2dGcc_QCurve&    Qualified1 ,
   gp_Pnt2d point1 = Geom2dGcc_CurveTool::Value(Cu1,Param1);
   gp_Pnt2d point3 = Geom2dGcc_CurveTool::Value(OnCurv,ParamOn);
   Ufirst(3) = (point3.Distance(Point2)+point3.Distance(point1))/2.;
-  Geom2dGcc_FunctionTanCuCuOnCu Func(Cu1,Point2,OnCurv,Ufirst(3));
+  Geom2dGcc_FunctionTanCuCuOnCu Func(Cu1,Point2,OnCurv,Max(Ufirst(3), Tol));
   math_FunctionSetRoot Root(Func, tol);
   Root.Perform(Func, Ufirst, Umin, Umax);
   Func.Value(Ufirst,Umin);
@@ -1253,7 +1257,7 @@ void Geom2dGcc_Circ2d2TanOnIter::
 WhichQualifier (GccEnt_Position& Qualif1  ,
                 GccEnt_Position& Qualif2  ) const
 {
-  if (!WellDone) { StdFail_NotDone::Raise(); }
+  if (!WellDone) { throw StdFail_NotDone(); }
   else {
     Qualif1 = qualifier1;
     Qualif2 = qualifier2;
@@ -1265,14 +1269,14 @@ Tangency1 (Standard_Real&      ParSol         ,
            Standard_Real&      ParArg         ,
            gp_Pnt2d&  PntSol         ) const
 {
-  if (!WellDone) { StdFail_NotDone::Raise(); }
+  if (!WellDone) { throw StdFail_NotDone(); }
   else {
     if (TheSame1 == 0) {
       ParSol = 0;
       ParArg = 0;
       PntSol = pnttg1sol;
     }
-    else { StdFail_NotDone::Raise(); }
+    else { throw StdFail_NotDone(); }
   }
 }
 
@@ -1281,7 +1285,7 @@ Tangency2 (Standard_Real&      ParSol         ,
            Standard_Real&      ParArg         ,
            gp_Pnt2d&  PntSol         ) const
 {
-  if (!WellDone) { StdFail_NotDone::Raise(); }
+  if (!WellDone) { throw StdFail_NotDone(); }
   else {
     ParSol = 0;
     ParArg = 0;
@@ -1293,7 +1297,7 @@ void Geom2dGcc_Circ2d2TanOnIter::
 CenterOn3 (Standard_Real&      ParArg         ,
            gp_Pnt2d&  PntSol         ) const
 {
-  if (!WellDone) { StdFail_NotDone::Raise(); }
+  if (!WellDone) { throw StdFail_NotDone(); }
   else {
     ParArg = 0;
     PntSol = pntcen;
@@ -1303,7 +1307,7 @@ CenterOn3 (Standard_Real&      ParArg         ,
 Standard_Boolean Geom2dGcc_Circ2d2TanOnIter::
 IsTheSame1 () const
 {
-  if (!WellDone) StdFail_NotDone::Raise();
+  if (!WellDone) throw StdFail_NotDone();
 
   if (TheSame1 == 0) 
     return Standard_False;
@@ -1314,6 +1318,6 @@ IsTheSame1 () const
 Standard_Boolean Geom2dGcc_Circ2d2TanOnIter::
 IsTheSame2 () const
 {
-  if (!WellDone) StdFail_NotDone::Raise();
+  if (!WellDone) throw StdFail_NotDone();
   return Standard_False;
 }

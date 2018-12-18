@@ -16,13 +16,8 @@
 #include <BOPAlgo_BuilderFace.hxx>
 #include <BOPAlgo_CheckerSI.hxx>
 #include <BOPAlgo_Operation.hxx>
-#include <BOPCol_ListOfShape.hxx>
-#include <BOPCol_MapOfShape.hxx>
-#include <BOPCol_IndexedMapOfShape.hxx>
-#include <BOPCol_SequenceOfShape.hxx>
 #include <BOPDS_DS.hxx>
-#include <BOPDS_MapOfPassKey.hxx>
-#include <BOPTools.hxx>
+#include <BOPDS_MapOfPair.hxx>
 #include <BOPTools_AlgoTools.hxx>
 #include <BOPTools_AlgoTools3D.hxx>
 #include <BRep_Builder.hxx>
@@ -50,6 +45,11 @@
 #include <TopoDS_Solid.hxx>
 #include <TopoDS_Vertex.hxx>
 #include <TopoDS_Wire.hxx>
+#include <TopTools_IndexedMapOfShape.hxx>
+#include <TopTools_ListOfShape.hxx>
+#include <TopTools_MapOfShape.hxx>
+#include <TopTools_SequenceOfShape.hxx>
+
 // ================================================================================
 // function: Constructor
 // purpose:
@@ -68,8 +68,7 @@ myMergeEdgeMode(Standard_False),
 myContinuityMode(Standard_False),
 myCurveOnSurfaceMode(Standard_False),
 myEmpty1(Standard_False),
-myEmpty2(Standard_False),
-myFuzzyValue(0.)
+myEmpty2(Standard_False)
 {
 }
 //=======================================================================
@@ -79,7 +78,6 @@ myFuzzyValue(0.)
 BOPAlgo_ArgumentAnalyzer::~BOPAlgo_ArgumentAnalyzer()
 {
   myResult.Clear();
-  myToleranceMap.Clear();
 }
 
 // ================================================================================
@@ -167,26 +165,21 @@ void BOPAlgo_ArgumentAnalyzer::Perform()
     //
     UserBreak();
     //
-    // 2. Update Tolerances according to myFuzzyValue
-    UpdateTolerances();
-    //
-    UserBreak();
-    //
-    // 3. Test types
+    // 2. Test types
     if(myArgumentTypeMode) {
       TestTypes();
     }
     //
     UserBreak();
     //
-    // 4. Test self-interference
+    // 3. Test self-interference
     if(mySelfInterMode) {
       TestSelfInterferences();
     }
     //
     UserBreak();
     //
-    // 5. Test small edges
+    // 4. Test small edges
     if(mySmallEdgeMode) {
       if(!(!myResult.IsEmpty() && myStopOnFirst))
         TestSmallEdge();
@@ -194,7 +187,7 @@ void BOPAlgo_ArgumentAnalyzer::Perform()
     //
     UserBreak();
     //
-    // 6. Test possibility to rebuild faces
+    // 5. Test possibility to rebuild faces
     if(myRebuildFaceMode) {
       if(!(!myResult.IsEmpty() && myStopOnFirst))
         TestRebuildFace();
@@ -202,7 +195,7 @@ void BOPAlgo_ArgumentAnalyzer::Perform()
     //
     UserBreak();
     //
-    // 7. Test tangent
+    // 6. Test tangent
     if(myTangentMode) {
       if(!(!myResult.IsEmpty() && myStopOnFirst))
         TestTangent();
@@ -210,7 +203,7 @@ void BOPAlgo_ArgumentAnalyzer::Perform()
     //
     UserBreak();
     //
-    // 8. Test merge vertices
+    // 7. Test merge vertices
     if(myMergeVertexMode) {
       if(!(!myResult.IsEmpty() && myStopOnFirst))
         TestMergeVertex();
@@ -218,7 +211,7 @@ void BOPAlgo_ArgumentAnalyzer::Perform()
     //
     UserBreak();
     //
-    // 9. Test merge edges
+    // 8. Test merge edges
     if(myMergeEdgeMode) {
       if(!(!myResult.IsEmpty() && myStopOnFirst))
         TestMergeEdge();
@@ -226,7 +219,7 @@ void BOPAlgo_ArgumentAnalyzer::Perform()
     //
     UserBreak();
     //
-    // 10. Test shapes continuity
+    // 9. Test shapes continuity
     if(myContinuityMode) {
       if(!(!myResult.IsEmpty() && myStopOnFirst))
         TestContinuity();
@@ -234,7 +227,7 @@ void BOPAlgo_ArgumentAnalyzer::Perform()
     //
     UserBreak();
     //
-    // 11. Test validity of the curves on the surfaces
+    // 10. Test validity of the curves on the surfaces
     if(myCurveOnSurfaceMode) {
       if(!(!myResult.IsEmpty() && myStopOnFirst))
         TestCurveOnSurface();
@@ -245,8 +238,6 @@ void BOPAlgo_ArgumentAnalyzer::Perform()
     aResult.SetCheckStatus(BOPAlgo_CheckUnknown);
     myResult.Append(aResult);
   }
-  //
-  SetDefaultTolerances();
 }
 
 // ================================================================================
@@ -360,27 +351,28 @@ void BOPAlgo_ArgumentAnalyzer::TestSelfInterferences()
       continue;
     }
     //
-    Standard_Integer iErr, n1, n2;
-    BOPDS_MapIteratorMapOfPassKey aItMPK;
-    BOPCol_ListOfShape anArgs;
+    Standard_Integer n1, n2;
+    BOPDS_MapIteratorOfMapOfPair aItMPK;
+    TopTools_ListOfShape anArgs;
     BOPAlgo_CheckerSI aChecker;
     //
     anArgs.Append(aS);
     aChecker.SetArguments(anArgs);
     aChecker.SetNonDestructive(Standard_True);
     aChecker.SetRunParallel(myRunParallel);
+    aChecker.SetFuzzyValue(myFuzzyValue);
     aChecker.SetProgressIndicator(myProgressIndicator);
     //
     aChecker.Perform();
-    iErr=aChecker.ErrorStatus();
+    Standard_Boolean hasError = aChecker.HasErrors();
     //
     const BOPDS_DS& aDS=*(aChecker.PDS());
-    const BOPDS_MapOfPassKey& aMPK=aDS.Interferences();
+    const BOPDS_MapOfPair& aMPK=aDS.Interferences();
     //
     aItMPK.Initialize(aMPK);
     for (; aItMPK.More(); aItMPK.Next()) {
-      const BOPDS_PassKey& aPK=aItMPK.Value();
-      aPK.Ids(n1, n2);
+      const BOPDS_Pair& aPK=aItMPK.Value();
+      aPK.Indices(n1, n2);
       if(aDS.IsNewShape(n1) || aDS.IsNewShape(n2)) {
         continue;
       }
@@ -392,18 +384,20 @@ void BOPAlgo_ArgumentAnalyzer::TestSelfInterferences()
       if(ii == 0) {
         aResult.SetShape1(myShape1);
         aResult.AddFaultyShape1(aS1);
-        aResult.AddFaultyShape1(aS2);
+        if (!aS1.IsSame(aS2))
+          aResult.AddFaultyShape1(aS2);
       }
       else {
         aResult.SetShape2(myShape2);
         aResult.AddFaultyShape2(aS1);
-        aResult.AddFaultyShape2(aS2);
+        if (!aS1.IsSame(aS2))
+          aResult.AddFaultyShape2(aS2);
       }
       aResult.SetCheckStatus(BOPAlgo_SelfIntersect);
       myResult.Append(aResult);
     }
     //
-    if (iErr) {
+    if (hasError) {
       BOPAlgo_CheckResult aResult;
       if(ii == 0) {
         aResult.SetShape1(myShape1);
@@ -541,7 +535,7 @@ void BOPAlgo_ArgumentAnalyzer::TestRebuildFace()
       continue;
 
     TopExp_Explorer anExp(aS, TopAbs_FACE);
-    BOPCol_ListOfShape aLS;
+    TopTools_ListOfShape aLS;
 
     for(; anExp.More(); anExp.Next()) {
       const TopoDS_Face& aFace = *(TopoDS_Face*)&(anExp.Current());
@@ -572,7 +566,7 @@ void BOPAlgo_ArgumentAnalyzer::TestRebuildFace()
       aBF.SetFace(aFace);
       aBF.SetShapes(aLS);
       aBF.Perform();
-      const BOPCol_ListOfShape& aLF = aBF.Areas();
+      const TopTools_ListOfShape& aLF = aBF.Areas();
       Standard_Boolean bBadFace = Standard_False;
 
       if(aLF.Extent() != 1) {
@@ -653,8 +647,8 @@ void BOPAlgo_ArgumentAnalyzer::TestTangent()
   }
   TopExp_Explorer anExp1(myShape1, theType);
   TopExp_Explorer anExp2(myShape2, theType);
-  BOPCol_SequenceOfShape aSeq1, aSeq2;
-  BOPCol_MapOfShape aMap1, aMap2;
+  TopTools_SequenceOfShape aSeq1, aSeq2;
+  TopTools_MapOfShape aMap1, aMap2;
 
   for(; anExp1.More(); anExp1.Next()) {
     const TopoDS_Shape& aS1 = anExp1.Current();
@@ -681,7 +675,7 @@ void BOPAlgo_ArgumentAnalyzer::TestTangent()
 
   for(i = 1; i <= aSeq1.Length(); i++) {
     const TopoDS_Shape& aS1 = aSeq1.Value(i);
-    BOPCol_ListOfShape aListOfS2;
+    TopTools_ListOfShape aListOfS2;
     Standard_Integer nbs = 0;
 
     for(j = 1; j <= aSeq2.Length(); j++) {
@@ -737,7 +731,7 @@ void BOPAlgo_ArgumentAnalyzer::TestTangent()
       aResult.SetShape1(myShape1);
       aResult.SetShape2(myShape2);
       aResult.AddFaultyShape1(aS1);
-      BOPCol_ListIteratorOfListOfShape anIt(aListOfS2);
+      TopTools_ListIteratorOfListOfShape anIt(aListOfS2);
 
       for(; anIt.More(); anIt.Next()) {
         aResult.AddFaultyShape2(anIt.Value());
@@ -754,7 +748,7 @@ void BOPAlgo_ArgumentAnalyzer::TestTangent()
 
   for(i = 1; i <= aSeq2.Length(); i++) {
     const TopoDS_Shape& aS2 = aSeq2.Value(i);
-    BOPCol_ListOfShape aListOfS1;
+    TopTools_ListOfShape aListOfS1;
     Standard_Integer nbs = 0;
 
     for(j = 1; j <= aSeq1.Length(); j++) {
@@ -771,7 +765,7 @@ void BOPAlgo_ArgumentAnalyzer::TestTangent()
 
       aResult.SetShape1(myShape1);
       aResult.SetShape2(myShape2);
-      BOPCol_ListIteratorOfListOfShape anIt(aListOfS1);
+      TopTools_ListIteratorOfListOfShape anIt(aListOfS1);
 
       for(; anIt.More(); anIt.Next()) {
         aResult.AddFaultyShape1(anIt.Value());
@@ -822,7 +816,7 @@ void BOPAlgo_ArgumentAnalyzer::TestContinuity()
       continue;
     }
     //
-    BOPCol_IndexedMapOfShape aMS;
+    TopTools_IndexedMapOfShape aMS;
     //Edges
     aExp.Init(aS, TopAbs_EDGE);
     for (; aExp.More(); aExp.Next()) {
@@ -912,123 +906,4 @@ void BOPAlgo_ArgumentAnalyzer::TestCurveOnSurface()
       }
     }
   }
-}
-
-// ================================================================================
-// function: UpdateTolerances
-// purpose:
-// ================================================================================
-void BOPAlgo_ArgumentAnalyzer::UpdateTolerances()
-{
-  if (myFuzzyValue == 0.) {
-    return;
-  }
-  //
-  BOPCol_MapOfShape aMapShapes;
-  //
-  if (!myShape1.IsNull()) {
-    BOPTools::MapShapes(myShape1, aMapShapes);
-  }
-  if (!myShape2.IsNull()) {
-    BOPTools::MapShapes(myShape2, aMapShapes);
-  }
-  //
-  if (aMapShapes.IsEmpty()) {
-    return;
-  }
-  //
-  Standard_Real aTol, aFuzz;
-  TopAbs_ShapeEnum aType;
-  BOPCol_MapIteratorOfMapOfShape aIt;
-  //
-  aFuzz = myFuzzyValue / 2.;
-  aIt.Initialize(aMapShapes);
-  for (; aIt.More(); aIt.Next()) {
-    const TopoDS_Shape& aS = aIt.Value();
-    aType = aS.ShapeType();
-    //
-    switch (aType) {
-    case TopAbs_VERTEX: {
-      const TopoDS_Vertex& aV = *(TopoDS_Vertex*)&aS;
-      const Handle(BRep_TVertex)& TV = 
-        *((Handle(BRep_TVertex)*)&aV.TShape());
-      aTol = TV->Tolerance();
-      myToleranceMap.Bind(aS, aTol);
-      TV->Tolerance(aTol + aFuzz);
-      break;
-    }
-    case TopAbs_EDGE: {
-      const TopoDS_Edge& aE = *(TopoDS_Edge*)&aS;
-      const Handle(BRep_TEdge)& TE = 
-        *((Handle(BRep_TEdge)*)&aE.TShape());
-      aTol = TE->Tolerance();
-      myToleranceMap.Bind(aS, aTol);
-      TE->Tolerance(aTol + aFuzz);
-      break;
-    }
-    case TopAbs_FACE: {
-      const TopoDS_Face& aF = *(TopoDS_Face*)&aS;
-      const Handle(BRep_TFace)& TF = 
-        *((Handle(BRep_TFace)*)&aF.TShape());
-      aTol = TF->Tolerance();
-      myToleranceMap.Bind(aS, aTol);
-      TF->Tolerance(aTol + aFuzz);
-      break;
-    }
-    default:
-      break;
-    } // switch (aType) {
-  } // for (; aIt.More(); aIt.Next()) {
-}
-
-// ================================================================================
-// function: SetDefaultTolerances
-// purpose:
-// ================================================================================
-void BOPAlgo_ArgumentAnalyzer::SetDefaultTolerances()
-{
-  if (myFuzzyValue == 0.) {
-    return;
-  }
-  //
-  if (myToleranceMap.IsEmpty()) {
-    return;
-  }
-  //
-  Standard_Real aTol;
-  TopAbs_ShapeEnum aType;
-  BOPCol_DataMapIteratorOfDataMapOfShapeReal aIt;
-  //
-  aIt.Initialize(myToleranceMap);
-  for (; aIt.More(); aIt.Next()) {
-    const TopoDS_Shape& aS = aIt.Key();
-    aTol = aIt.Value();
-    aType = aS.ShapeType();
-    //
-    switch (aType) {
-    case TopAbs_VERTEX: {
-      const TopoDS_Vertex& aV = *(TopoDS_Vertex*)&aS;
-      const Handle(BRep_TVertex)& TV = 
-        *((Handle(BRep_TVertex)*)&aV.TShape());
-      TV->Tolerance(aTol);
-      break;
-    }
-    case TopAbs_EDGE: {
-      const TopoDS_Edge& aE = *(TopoDS_Edge*)&aS;
-      const Handle(BRep_TEdge)& TE = 
-        *((Handle(BRep_TEdge)*)&aE.TShape());
-      TE->Tolerance(aTol);
-      break;
-    }
-    case TopAbs_FACE: {
-      const TopoDS_Face& aF = *(TopoDS_Face*)&aS;
-      const Handle(BRep_TFace)& TF = 
-        *((Handle(BRep_TFace)*)&aF.TShape());
-      TF->Tolerance(aTol);
-      break;
-    }
-    default:
-      break;
-    } // switch (aType) {
-  } // for (; aIt.More(); aIt.Next()) {
 }

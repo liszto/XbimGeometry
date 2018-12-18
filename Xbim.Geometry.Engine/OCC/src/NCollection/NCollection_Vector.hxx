@@ -152,8 +152,8 @@ public:
 public: //! @name public methods
 
   //! Constructor
-  NCollection_Vector (const Standard_Integer theIncrement              = 256,
-                      const Handle(NCollection_BaseAllocator)& theAlloc = NULL) :
+  explicit NCollection_Vector (const Standard_Integer theIncrement              = 256,
+                               const Handle(NCollection_BaseAllocator)& theAlloc = NULL) :
     NCollection_BaseVector (theAlloc, initMemBlocks, sizeof(TheItemType), theIncrement)
   {}
 
@@ -222,6 +222,13 @@ public: //! @name public methods
   {
     TheItemType& anAppended = *(TheItemType* )expandV (myLength);
     anAppended = theValue;
+    return anAppended;
+  }
+
+  //! Appends an empty value and returns the reference to it
+  TheItemType& Appended ()
+  {
+    TheItemType& anAppended = *(TheItemType* )expandV (myLength);
     return anAppended;
   }
 

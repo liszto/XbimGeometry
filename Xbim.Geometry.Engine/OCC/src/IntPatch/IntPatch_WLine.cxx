@@ -479,7 +479,7 @@ void IntPatch_WLine::ComputeVertexParameters( const Standard_Real RTol)
   //-- On detecte les points confondus dans la LineOn2S
   Standard_Real dmini = Precision::Confusion();
   dmini*=dmini;
-  for(i=2; i<=nbponline; i++) { 
+  for(i=2; (i<=nbponline) && (nbponline > 2); i++) { 
     const IntSurf_PntOn2S& aPnt1=curv->Value(i-1);
     const IntSurf_PntOn2S& aPnt2=curv->Value(i);
     Standard_Real d = (aPnt1.Value()).SquareDistance((aPnt2.Value()));
@@ -580,7 +580,7 @@ void IntPatch_WLine::ComputeVertexParameters( const Standard_Real RTol)
       if (Substitution)
       {
         Standard_Integer ind_point;
-        for(ind_point = 2; (ind_point <= nbponline && nbponline > 2); ind_point++) { 
+        for(ind_point = 2; (ind_point <= nbponline && nbponline > 1); ind_point++) { 
           Standard_Real d = (curv->Value(ind_point-1).Value()).SquareDistance((curv->Value(ind_point).Value()));
           if(d < dmini) { 
             curv->RemovePoint(ind_point);

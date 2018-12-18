@@ -38,7 +38,7 @@
 #include <TopoDS_Vertex.hxx>
 #include <TopoDS_Wire.hxx>
 
-IMPLEMENT_STANDARD_RTTIEXT(BRepFill_SectionLaw,MMgt_TShared)
+IMPLEMENT_STANDARD_RTTIEXT(BRepFill_SectionLaw,Standard_Transient)
 
 //=======================================================================
 //function : NbLaw
@@ -58,6 +58,15 @@ Standard_Integer BRepFill_SectionLaw::NbLaw() const
  BRepFill_SectionLaw::Law(const Standard_Integer Index) const
 {
   return myLaws->Value(Index);
+}
+
+//=======================================================================
+//function : Indices
+//purpose  :
+//=======================================================================
+Standard_Integer BRepFill_SectionLaw::IndexOfEdge(const TopoDS_Shape& anEdge) const
+{
+  return myIndices(anEdge);
 }
 
 //=======================================================================

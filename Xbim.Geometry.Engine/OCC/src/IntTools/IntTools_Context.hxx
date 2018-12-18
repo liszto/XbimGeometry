@@ -18,14 +18,17 @@
 #include <Standard.hxx>
 #include <Standard_Type.hxx>
 
-#include <BOPCol_BaseAllocator.hxx>
-#include <BOPCol_DataMapOfShapeAddress.hxx>
-#include <BOPCol_DataMapOfTransientAddress.hxx>
+#include <NCollection_BaseAllocator.hxx>
+#include <NCollection_DataMap.hxx>
+#include <TopTools_ShapeMapHasher.hxx>
 #include <Standard_Integer.hxx>
 #include <Standard_Real.hxx>
-#include <MMgt_TShared.hxx>
+#include <Precision.hxx>
+#include <Standard_Transient.hxx>
 #include <TopAbs_State.hxx>
 #include <Standard_Boolean.hxx>
+#include <BRepAdaptor_Surface.hxx>
+#include <TColStd_MapTransientHasher.hxx>
 class IntTools_FClass2d;
 class TopoDS_Face;
 class GeomAPI_ProjectPointOnSurf;
@@ -42,26 +45,21 @@ class gp_Pnt2d;
 class IntTools_Curve;
 class Bnd_Box;
 class TopoDS_Shape;
-
-
-class IntTools_Context;
-DEFINE_STANDARD_HANDLE(IntTools_Context, MMgt_TShared)
-
+class Bnd_OBB;
 
 //! The intersection Context contains geometrical
 //! and topological toolkit (classifiers, projectors, etc).
 //! The intersection Context is for caching the tools
 //! to increase the performance.
-class IntTools_Context : public MMgt_TShared
+class IntTools_Context : public Standard_Transient
 {
-
 public:
 
   
   Standard_EXPORT IntTools_Context();
 Standard_EXPORT virtual  ~IntTools_Context();
   
-  Standard_EXPORT IntTools_Context(const BOPCol_BaseAllocator& theAllocator);
+  Standard_EXPORT IntTools_Context(const Handle(NCollection_BaseAllocator)& theAllocator);
   
 
   //! Returns a reference to point classifier
@@ -98,6 +96,20 @@ Standard_EXPORT virtual  ~IntTools_Context();
   //! for given face
   Standard_EXPORT Geom2dHatch_Hatcher& Hatcher (const TopoDS_Face& aF);
   
+  //! Returns a reference to surface adaptor for given face
+  Standard_EXPORT BRepAdaptor_Surface& SurfaceAdaptor (const TopoDS_Face& theFace);
+
+  //! Builds and stores an Oriented Bounding Box for the shape.
+  //! Returns a reference to OBB.
+  Standard_EXPORT Bnd_OBB& OBB(const TopoDS_Shape& theShape,
+                               const Standard_Real theFuzzyValue = Precision::Confusion());
+
+  //! Computes the boundaries of the face using surface adaptor
+  Standard_EXPORT void UVBounds (const TopoDS_Face& theFace,
+                                 Standard_Real& UMin,
+                                 Standard_Real& UMax,
+                                 Standard_Real& VMin,
+                                 Standard_Real& VMax);
 
   //! Computes parameter of the Point theP on
   //! the edge aE.
@@ -111,37 +123,40 @@ Standard_EXPORT virtual  ~IntTools_Context();
   Standard_EXPORT Standard_Integer ComputePE (const gp_Pnt& theP, const Standard_Real theTolP,
                                               const TopoDS_Edge& theE, Standard_Real& theT,
                                               Standard_Real& theDist);
-  
+
 
   //! Computes parameter of the vertex aV on
-  //! the edge aE and new increased value of vertex tolerance.
+  //! the edge aE and correct tolerance value for 
+  //! the vertex on the edge.
   //! Returns zero if the distance between vertex
-  //! and edge is less than sum of tolerances,
+  //! and edge is less than sum of tolerances and the fuzzy value,
   //! otherwise and for following conditions returns
   //! negative value: <br>
   //! 1. the edge is degenerated (-1) <br>
   //! 2. the edge does not contain 3d curve and pcurves (-2) <br>
   //! 3. projection algorithm failed (-3)
-  Standard_EXPORT Standard_Integer ComputeVE (const TopoDS_Vertex& aV,
-                                              const TopoDS_Edge& aE,
-                                              Standard_Real& aParam,
-                                              Standard_Real& aTolVnew);
+  Standard_EXPORT Standard_Integer ComputeVE (const TopoDS_Vertex& theV,
+                                const TopoDS_Edge& theE, 
+                                Standard_Real& theT,
+                                Standard_Real& theTol,
+                                const Standard_Real theFuzz = Precision::Confusion());
 
 
   //! Computes UV parameters of the vertex aV on face aF
-  //! and new increased value of vertex tolerance.
+  //! and correct tolerance value for the vertex on the face.
   //! Returns zero if the distance between vertex and face is
-  //! less than or equal the sum of tolerances and the projection
-  //! point lays inside boundaries of the face.
+  //! less than or equal the sum of tolerances and the fuzzy value 
+  //! and the projection point lays inside boundaries of the face.
   //! For following conditions returns negative value <br>
   //! 1. projection algorithm failed (-1) <br>
   //! 2. distance is more than sum of tolerances (-2) <br>
   //! 3. projection point out or on the boundaries of face (-3)
-  Standard_EXPORT Standard_Integer ComputeVF (const TopoDS_Vertex& aV,
-                                              const TopoDS_Face& aF,
-                                              Standard_Real& U,
-                                              Standard_Real& V,
-                                              Standard_Real& aTolVnew);
+  Standard_EXPORT Standard_Integer ComputeVF (const TopoDS_Vertex& theVertex, 
+                                const TopoDS_Face& theFace, 
+                                Standard_Real& theU,
+                                Standard_Real& theV,
+                                Standard_Real& theTol,
+                                const Standard_Real theFuzz = Precision::Confusion());
 
 
   //! Returns the state of the point aP2D
@@ -226,21 +241,28 @@ Standard_EXPORT virtual  ~IntTools_Context();
 
 
 
-
-  DEFINE_STANDARD_RTTIEXT(IntTools_Context,MMgt_TShared)
+  DEFINE_STANDARD_RTTIEXT(IntTools_Context,Standard_Transient)
 
 protected:
 
+  typedef NCollection_DataMap<TopoDS_Shape,
+                              Standard_Address,
+                              TopTools_ShapeMapHasher> DataMapOfShapeAddress;
+  typedef NCollection_DataMap<Handle(Standard_Transient),
+                              Standard_Address,
+                              TColStd_MapTransientHasher> DataMapOfTransientAddress;
 
-  BOPCol_BaseAllocator myAllocator;
-  BOPCol_DataMapOfShapeAddress myFClass2dMap;
-  BOPCol_DataMapOfShapeAddress myProjPSMap;
-  BOPCol_DataMapOfShapeAddress myProjPCMap;
-  BOPCol_DataMapOfShapeAddress mySClassMap;
-  BOPCol_DataMapOfTransientAddress myProjPTMap;
-  BOPCol_DataMapOfShapeAddress myHatcherMap;
-  BOPCol_DataMapOfShapeAddress myProjSDataMap;
-  BOPCol_DataMapOfShapeAddress myBndBoxDataMap;
+  Handle(NCollection_BaseAllocator) myAllocator;
+  DataMapOfShapeAddress myFClass2dMap;
+  DataMapOfShapeAddress myProjPSMap;
+  DataMapOfShapeAddress myProjPCMap;
+  DataMapOfShapeAddress mySClassMap;
+  DataMapOfTransientAddress myProjPTMap;
+  DataMapOfShapeAddress myHatcherMap;
+  DataMapOfShapeAddress myProjSDataMap;
+  DataMapOfShapeAddress myBndBoxDataMap;
+  DataMapOfShapeAddress mySurfAdaptorMap;
+  DataMapOfShapeAddress myOBBMap; // Map of oriented bounding boxes
   Standard_Integer myCreateFlag;
   Standard_Real myPOnSTolerance;
 
@@ -251,14 +273,8 @@ private:
   //! Clears map of already cached projectors.
   Standard_EXPORT void clearCachedPOnSProjectors();
 
-
-
 };
 
-
-
-
-
-
+DEFINE_STANDARD_HANDLE(IntTools_Context, Standard_Transient)
 
 #endif // _IntTools_Context_HeaderFile

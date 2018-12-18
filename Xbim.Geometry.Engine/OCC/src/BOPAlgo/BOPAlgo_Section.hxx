@@ -20,14 +20,14 @@
 #include <Standard_Handle.hxx>
 
 #include <BOPAlgo_Builder.hxx>
-#include <BOPCol_BaseAllocator.hxx>
+#include <NCollection_BaseAllocator.hxx>
 #include <TopTools_ListOfShape.hxx>
 class BOPAlgo_PaveFiller;
 class TopoDS_Shape;
 
 
 
-//! The algorithm to build a Secton between the arguments.
+//! The algorithm to build a Section between the arguments.
 //! The Section consists of vertices and edges.
 //! The Section contains:
 //! 1. new vertices that are subjects of V/V, E/E, E/F, F/F interferences
@@ -40,49 +40,26 @@ public:
 
   DEFINE_STANDARD_ALLOC
 
-  
   //! Empty constructor
   Standard_EXPORT BOPAlgo_Section();
-Standard_EXPORT virtual ~BOPAlgo_Section();
-  
-  //! Empty constructor
-  //!
-  //! protected methods
-  Standard_EXPORT BOPAlgo_Section(const BOPCol_BaseAllocator& theAllocator);
-  
-  Standard_EXPORT virtual void BuildSection();
-  
-  //! Returns the  list of shapes generated from the
-  //! shape theS.
-  Standard_EXPORT virtual const TopTools_ListOfShape& Generated (const TopoDS_Shape& theS) Standard_OVERRIDE;
+  Standard_EXPORT virtual ~BOPAlgo_Section();
 
-
-
+  //! Constructor with allocator
+  Standard_EXPORT BOPAlgo_Section(const Handle(NCollection_BaseAllocator)& theAllocator);
 
 protected:
 
-  
+  //! Checks the data before performing the operation
   Standard_EXPORT virtual void CheckData() Standard_OVERRIDE;
-  
-  //! Performs calculations using prepared Filler
-  //! object <thePF>
-  Standard_EXPORT virtual void PerformInternal1 (const BOPAlgo_PaveFiller& thePF) Standard_OVERRIDE;
 
+  //! Combine the result of section operation
+  Standard_EXPORT virtual void BuildSection();
 
-
+  //! Performs calculations using prepared Filler object <thePF>
+  Standard_EXPORT virtual void PerformInternal1(const BOPAlgo_PaveFiller& thePF) Standard_OVERRIDE;
 
 private:
 
-
-
-
-
 };
-
-
-
-
-
-
 
 #endif // _BOPAlgo_Section_HeaderFile

@@ -94,7 +94,7 @@ Standard_Integer DetectKPart(const TopoDS_Edge& Edge1,
   else {
     curv1 = BRep_Tool::Curve(Edge1, loc, first1, last1);
     if (curv1.IsNull())
-      Standard_NullObject::Raise("Null 3D curve in edge");
+      throw Standard_NullObject("Null 3D curve in edge");
     curv1 = 
       Handle(Geom_Curve)::DownCast(curv1->Transformed(loc.Transformation()));
     ff = first1;
@@ -161,7 +161,7 @@ Standard_Integer DetectKPart(const TopoDS_Edge& Edge1,
     else {
       curv = BRep_Tool::Curve(Edge2, loc, first2, last2);
       if (curv.IsNull())
-        Standard_NullObject::Raise("Null 3D curve in edge");
+        throw Standard_NullObject("Null 3D curve in edge");
       curv = 
 	Handle(Geom_Curve)::DownCast(curv->Transformed(loc.Transformation()));
       ff = first2;
@@ -341,7 +341,7 @@ void CreateKPart(const TopoDS_Edge& Edge1,const TopoDS_Edge& Edge2,
   else {
     C1 = BRep_Tool::Curve(Edge1, loc, a1, b1);
     if (C1.IsNull())
-      Standard_NullObject::Raise("Null 3D curve in edge");
+      throw Standard_NullObject("Null 3D curve in edge");
     C1 = Handle(Geom_Curve)::DownCast(C1->Transformed(loc.Transformation()));
     aa = a1;
     bb = b1;
@@ -366,7 +366,7 @@ void CreateKPart(const TopoDS_Edge& Edge1,const TopoDS_Edge& Edge2,
   else {
     C2 = BRep_Tool::Curve(Edge2, loc, a1, b1);
     if (C2.IsNull())
-      Standard_NullObject::Raise("Null 3D curve in edge");
+      throw Standard_NullObject("Null 3D curve in edge");
     C2 = Handle(Geom_Curve)::DownCast(C2->Transformed(loc.Transformation()));
     if (Edge2.Orientation() == TopAbs_REVERSED) {
       C2->Reverse();
@@ -669,7 +669,7 @@ void BRepFill_Generator::Perform()
 	else {
 	  C1 = BRep_Tool::Curve(Edge1,L1,f1,l1);
           if (C1.IsNull())
-            Standard_NullObject::Raise("Null 3D curve in edge");
+            throw Standard_NullObject("Null 3D curve in edge");
 	}
 	if (degen2) {
 	  Extremities(1) = BRep_Tool::Pnt(V2l);
@@ -679,7 +679,7 @@ void BRepFill_Generator::Perform()
 	else {
 	  C2 = BRep_Tool::Curve(Edge2,L2,f2,l2);
           if (C2.IsNull())
-            Standard_NullObject::Raise("Null 3D curve in edge");
+            throw Standard_NullObject("Null 3D curve in edge");
 	}
 	
 	// compute the location
@@ -728,37 +728,52 @@ void BRepFill_Generator::Perform()
       // make the missing edges
       Standard_Real first,last;
       Surf->Bounds(f1,l1,f2,l2);
+      if (IType == 0)
+      {
+        first = f2;
+        last = l2;
+      }
+      else
+      {
+        first = 0.;
+        last = 1.;
+      }
 
       if ( Map.IsBound(Vf_toMap)) {
 	TopoDS_Shape aLocalShape = Map(Vf_toMap).Reversed();
 	Edge3 = TopoDS::Edge(aLocalShape);
 //	Edge3 = TopoDS::Edge(Map(V1f).Reversed());
       }
-      else {
-	Handle(Geom_Curve) CC;
-	TColgp_Array1OfPnt Extremities(1,2);
-      	if (IType==0) {
-	  // general case : Edge3 corresponds to iso U=f1
-	  CC = Surf->UIso(f1);
-	  first=f2;
-	  last=l2;
-	}
-	else {
-	  // particular case : it is required to calculate the curve 3d
-	  Extremities(1) = BRep_Tool::Pnt(V1f);
-	  Extremities(2) = BRep_Tool::Pnt(V2f);
-	  CC = new Geom_BezierCurve(Extremities);
-	  first=0.;
-	  last=1.;
-	}
-	B.MakeEdge(Edge3,CC,Precision::Confusion());
-	V1f.Orientation(TopAbs_FORWARD);
-	B.Add(Edge3,V1f);
-	V2f.Orientation(TopAbs_REVERSED);
-	B.Add(Edge3,V2f);
-	B.Range(Edge3,first,last);
-	Edge3.Reverse();
-	Map.Bind(Vf_toMap, Edge3);
+      else
+      {
+        if (V1f.IsSame(V2f))
+        {
+          B.MakeEdge(Edge3);
+          B.Degenerated(Edge3, Standard_True);
+        }
+        else
+        {
+          Handle(Geom_Curve) CC;
+          TColgp_Array1OfPnt Extremities(1, 2);
+          if (IType == 0) {
+            // general case : Edge3 corresponds to iso U=f1
+            CC = Surf->UIso(f1);
+          }
+          else {
+            // particular case : it is required to calculate the curve 3d
+            Extremities(1) = BRep_Tool::Pnt(V1f);
+            Extremities(2) = BRep_Tool::Pnt(V2f);
+            CC = new Geom_BezierCurve(Extremities);
+          }
+          B.MakeEdge(Edge3, CC, Precision::Confusion());
+        }
+        V1f.Orientation(TopAbs_FORWARD);
+        B.Add(Edge3, V1f);
+        V2f.Orientation(TopAbs_REVERSED);
+        B.Add(Edge3, V2f);
+        B.Range(Edge3, first, last);
+        Edge3.Reverse();
+        Map.Bind(Vf_toMap, Edge3);
       }
 
       Standard_Boolean CommonEdge = Standard_False;
@@ -775,30 +790,35 @@ void BRepFill_Generator::Perform()
 	Edge4 = TopoDS::Edge(aLocalShape);
 //	Edge4 = TopoDS::Edge(Map(V1l).Reversed());
       }
-      else {
-	Handle(Geom_Curve) CC;
-	TColgp_Array1OfPnt Extremities(1,2);
-      	if (IType==0) {
-	  // general case : Edge4 corresponds to iso U=l1
-	  CC = Surf->UIso(l1);
-	  first=f2;
-	  last=l2;
-	}
-	else {
-	  // particular case : it is required to calculate the curve 3d
-	  Extremities(1) = BRep_Tool::Pnt(V1l);
-	  Extremities(2) = BRep_Tool::Pnt(V2l);
-	  CC = new Geom_BezierCurve(Extremities);
-	  first=0.;
-	  last=1.;
-	}
-	B.MakeEdge(Edge4,CC,Precision::Confusion());
-	V1l.Orientation(TopAbs_FORWARD);
-	B.Add(Edge4,V1l);
-	V2l.Orientation(TopAbs_REVERSED);
-	B.Add(Edge4,V2l);
-	B.Range(Edge4,first,last);
-	Map.Bind(Vl_toMap, Edge4);
+      else
+      {
+        if (V1l.IsSame(V2l))
+        {
+          B.MakeEdge(Edge4);
+          B.Degenerated(Edge4, Standard_True);
+        }
+        else
+        {
+          Handle(Geom_Curve) CC;
+          TColgp_Array1OfPnt Extremities(1, 2);
+          if (IType == 0) {
+            // general case : Edge4 corresponds to iso U=l1
+            CC = Surf->UIso(l1);
+          }
+          else {
+            // particular case : it is required to calculate the curve 3d
+            Extremities(1) = BRep_Tool::Pnt(V1l);
+            Extremities(2) = BRep_Tool::Pnt(V2l);
+            CC = new Geom_BezierCurve(Extremities);
+          }
+          B.MakeEdge(Edge4, CC, Precision::Confusion());
+        }
+        V1l.Orientation(TopAbs_FORWARD);
+        B.Add(Edge4, V1l);
+        V2l.Orientation(TopAbs_REVERSED);
+        B.Add(Edge4, V2l);
+        B.Range(Edge4, first, last);
+        Map.Bind(Vl_toMap, Edge4);
       }
 
       // make the wire

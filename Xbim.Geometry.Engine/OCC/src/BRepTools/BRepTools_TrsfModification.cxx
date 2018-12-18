@@ -180,6 +180,17 @@ Standard_Boolean BRepTools_TrsfModification::NewCurve2d
   if(!NewC->IsPeriodic()) {
     if(fc - f > Precision::PConfusion()) f = fc;
     if(l - lc > Precision::PConfusion()) l = lc;
+    if(Abs(l - f) < Precision::PConfusion())
+    {
+      if(Abs(f - fc) < Precision::PConfusion())
+      {
+        l = lc;
+      }
+      else
+      {
+        f = fc;
+      }
+    }
   }
 
   newf = f;
@@ -192,8 +203,7 @@ Standard_Boolean BRepTools_TrsfModification::NewCurve2d
     if ( gtrsf.Form() != gp_Identity) {
       NewC = GeomLib::GTransform(NewC,gtrsf);
       if (NewC.IsNull()) {
-	Standard_DomainError::Raise("TrsfModification:Error in NewCurve2d");
-	  return Standard_False;
+	throw Standard_DomainError("TrsfModification:Error in NewCurve2d");
 	}
       newf = NewC->FirstParameter();
       newl = NewC->LastParameter();
@@ -204,9 +214,10 @@ Standard_Boolean BRepTools_TrsfModification::NewCurve2d
   TopExp::Vertices(E,V1,V2);
   TopoDS_Shape initEFOR = E.Oriented(TopAbs_FORWARD); // skl
   TopoDS_Edge EFOR = TopoDS::Edge(initEFOR/*E.Oriented(TopAbs_FORWARD)*/); //skl
-  NewParameter(V1,EFOR,f,Tol);
-  NewParameter(V2,EFOR,l,Tol);
-  GeomLib::SameRange(Tol,NewC,newf,newl,f,l,C);
+  Standard_Real aTolV;
+  NewParameter(V1, EFOR, f, aTolV);
+  NewParameter(V2, EFOR, l, aTolV);
+  GeomLib::SameRange(Precision::PConfusion(), NewC, newf, newl, f, l, C);
   
   return Standard_True;
 }

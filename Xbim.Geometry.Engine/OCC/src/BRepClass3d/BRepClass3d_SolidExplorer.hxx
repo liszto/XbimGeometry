@@ -53,9 +53,6 @@ public:
   
   Standard_EXPORT BRepClass3d_SolidExplorer();
   
-  //! Raise if called.
-  Standard_EXPORT BRepClass3d_SolidExplorer(const BRepClass3d_SolidExplorer& Oth);
-  
   Standard_EXPORT BRepClass3d_SolidExplorer(const TopoDS_Shape& S);
   
   Standard_EXPORT virtual ~BRepClass3d_SolidExplorer();
@@ -152,14 +149,16 @@ public:
   
   Standard_EXPORT void Destroy();
 
+private:
 
-
+  Standard_EXPORT BRepClass3d_SolidExplorer(const BRepClass3d_SolidExplorer& Oth);
 
 protected:
 
-
-
-
+  Standard_EXPORT TopAbs_State ClassifyUVPoint
+                   (const IntCurvesFace_Intersector& theIntersector,
+                    const Handle(BRepAdaptor_HSurface)& theSurf,
+                    const gp_Pnt2d& theP2d) const;
 
 private:
 

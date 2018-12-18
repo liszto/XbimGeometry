@@ -27,7 +27,7 @@
 #include <Standard_NotImplemented.hxx>
 #include <Standard_Type.hxx>
 
-IMPLEMENT_STANDARD_RTTIEXT(Adaptor3d_TopolTool,MMgt_TShared)
+IMPLEMENT_STANDARD_RTTIEXT(Adaptor3d_TopolTool,Standard_Transient)
 
 #define myInfinite Precision::Infinite()
 
@@ -73,7 +73,7 @@ Adaptor3d_TopolTool::Adaptor3d_TopolTool (const Handle(Adaptor3d_HSurface)& S)
 
 void Adaptor3d_TopolTool::Initialize ()
 {
- Standard_NotImplemented::Raise("Adaptor3d_TopolTool::Initialize ()");
+ throw Standard_NotImplemented("Adaptor3d_TopolTool::Initialize ()");
 }
 
 void Adaptor3d_TopolTool::Initialize (const Handle(Adaptor3d_HSurface)& S)
@@ -222,7 +222,7 @@ Standard_Boolean Adaptor3d_TopolTool::More ()
 
 Handle(Adaptor2d_HCurve2d) Adaptor3d_TopolTool::Value ()
 {
-  if (idRestr >= nbRestr) {Standard_DomainError::Raise();}
+  if (idRestr >= nbRestr) {throw Standard_DomainError();}
   return myRestr[idRestr];
 }
 
@@ -266,7 +266,7 @@ Standard_Boolean Adaptor3d_TopolTool::MoreVertex ()
 
 Handle(Adaptor3d_HVertex) Adaptor3d_TopolTool::Vertex ()
 {
-  if (idVtx >= nbVtx) {Standard_DomainError::Raise();}
+  if (idVtx >= nbVtx) {throw Standard_DomainError();}
   return myVtx[idVtx];
 }
 
@@ -812,8 +812,7 @@ Standard_Boolean Adaptor3d_TopolTool::Has3d() const
 
 Standard_Real Adaptor3d_TopolTool::Tol3d(const Handle(Adaptor2d_HCurve2d)&) const
 {
-  Standard_DomainError::Raise("Adaptor3d_TopolTool: has no 3d representation");
-  return 0.;
+  throw Standard_DomainError("Adaptor3d_TopolTool: has no 3d representation");
 }
 
 //=======================================================================
@@ -823,8 +822,7 @@ Standard_Real Adaptor3d_TopolTool::Tol3d(const Handle(Adaptor2d_HCurve2d)&) cons
 
 Standard_Real Adaptor3d_TopolTool::Tol3d(const Handle(Adaptor3d_HVertex)&) const
 {
-  Standard_DomainError::Raise("Adaptor3d_TopolTool: has no 3d representation");
-  return 0.;
+  throw Standard_DomainError("Adaptor3d_TopolTool: has no 3d representation");
 }
 
 //=======================================================================
@@ -834,8 +832,7 @@ Standard_Real Adaptor3d_TopolTool::Tol3d(const Handle(Adaptor3d_HVertex)&) const
 
 gp_Pnt Adaptor3d_TopolTool::Pnt(const Handle(Adaptor3d_HVertex)&) const
 {
-  Standard_DomainError::Raise("Adaptor3d_TopolTool: has no 3d representation");
-  return gp::Origin();
+  throw Standard_DomainError("Adaptor3d_TopolTool: has no 3d representation");
 }
 
 
@@ -1090,10 +1087,6 @@ void Adaptor3d_TopolTool::BSplSamplePnts(const Standard_Real theDefl,
   Standard_Real tol = Max(0.01*aDefl2, 1.e-9);
   Standard_Integer l;
 
-  // Calculations of B-spline values will be made using adaptor,
-  // because it caches the data for performance
-  GeomAdaptor_Surface aBSplAdaptor(aBS);
-
   anUFlg(1) = Standard_True;
   anUFlg(nbsu) = Standard_True;
   //myNbSamplesU = 2; 
@@ -1109,12 +1102,10 @@ void Adaptor3d_TopolTool::BSplSamplePnts(const Standard_Real theDefl,
       }
 
       t2 = anUPars(j);
-//      gp_Pnt p1 = aBS->Value(t2, t1);
-      gp_Pnt p1 = aBSplAdaptor.Value(t2, t1);
+      gp_Pnt p1 = myS->Value(t2, t1);
       for(k = j+2; k <= nbsu; ++k) {
 	t2 = anUPars(k);
-//	gp_Pnt p2 = aBS->Value(t2, t1);
-	gp_Pnt p2 = aBSplAdaptor.Value(t2, t1);
+	gp_Pnt p2 = myS->Value(t2, t1);
 	//gce_MakeLin MkLin(p1, p2);
 	//const gp_Lin& lin = MkLin.Value();
 
@@ -1129,8 +1120,7 @@ void Adaptor3d_TopolTool::BSplSamplePnts(const Standard_Real theDefl,
 	    break;
 	  }
 
-//	  gp_Pnt pp =  aBS->Value(anUPars(l), t1);
-	  gp_Pnt pp =  aBSplAdaptor.Value(anUPars(l), t1);
+	  gp_Pnt pp =  myS->Value(anUPars(l), t1);
 	  Standard_Real d = lin.SquareDistance(pp);
 	  
 	  if(d <= aDefl2) continue;
@@ -1197,12 +1187,10 @@ void Adaptor3d_TopolTool::BSplSamplePnts(const Standard_Real theDefl,
       }
 
       t2 = aVPars(j);
-//      gp_Pnt p1 = aBS->Value(t1, t2);
-      gp_Pnt p1 = aBSplAdaptor.Value(t1, t2);
+      gp_Pnt p1 = myS->Value(t1, t2);
       for(k = j+2; k <= nbsv; ++k) {
 	t2 = aVPars(k);
-//	gp_Pnt p2 = aBS->Value(t1, t2);
-	gp_Pnt p2 = aBSplAdaptor.Value(t1, t2);
+	gp_Pnt p2 = myS->Value(t1, t2);
 
 	if(p1.SquareDistance(p2) <= tol) continue;
 	//gce_MakeLin MkLin(p1, p2);
@@ -1216,8 +1204,7 @@ void Adaptor3d_TopolTool::BSplSamplePnts(const Standard_Real theDefl,
 	    break;
 	  }
 
-//	  gp_Pnt pp =  aBS->Value(t1, aVPars(l));
-	  gp_Pnt pp =  aBSplAdaptor.Value(t1, aVPars(l));
+	  gp_Pnt pp =  myS->Value(t1, aVPars(l));
 	  Standard_Real d = lin.SquareDistance(pp);
 	  
 	  if(d <= aDefl2) continue;

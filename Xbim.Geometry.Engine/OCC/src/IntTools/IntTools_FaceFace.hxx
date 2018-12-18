@@ -70,21 +70,6 @@ public:
 
   //! Returns sequence of 3d curves as result of intersection
   Standard_EXPORT const IntTools_SequenceOfPntOn2Faces& Points() const;
-  
-
-  //! Returns tolerance reached during approximation,
-  //! and possibly increased to cover more area due to a small angle between surfaces.
-  //! If approximation was not done, returns zero.
-  Standard_EXPORT Standard_Real TolReached3d() const;
-
-  //! Returns tolerance reached during approximation, without any increase.
-  //! If approximation was not done, returns zero.
-  Standard_EXPORT Standard_Real TolReal() const;
-
-  //! Returns tolerance reached during approximation.
-  //! If approximation was not done, returns zero.
-  Standard_EXPORT Standard_Real TolReached2d() const;
-  
 
   //! Returns first of processed faces
   Standard_EXPORT const TopoDS_Face& Face1() const;
@@ -110,32 +95,32 @@ public:
 
   //! Sets the intersecton context
   Standard_EXPORT void SetContext (const Handle(IntTools_Context)& aContext);
+
+  //! Sets the Fuzzy value
+  Standard_EXPORT void SetFuzzyValue (const Standard_Real theFuzz);
+
   
+  //! Returns Fuzzy value
+  Standard_EXPORT Standard_Real FuzzyValue() const;
 
   //! Gets the intersecton context
   Standard_EXPORT const Handle(IntTools_Context)& Context() const;
 
-
-
-
 protected:
 
-  
+  //! Creates curves from the IntPatch_Line.
   Standard_EXPORT void MakeCurve (const Standard_Integer Index,
                                   const Handle(Adaptor3d_TopolTool)& D1,
                                   const Handle(Adaptor3d_TopolTool)& D2,
                                   const Standard_Real theToler);
-  
+
+  //! Computes the valid tolerance for the intersection curves
+  //! as a maximal deviation between 3D curve and 2D curves on faces.<br>
+  //! If there are no 2D curves the maximal deviation between 3D curves
+  //! and surfaces is computed.
   Standard_EXPORT void ComputeTolReached3d();
-  
-  Standard_EXPORT Standard_Real ComputeTolerance();
-
-
-
 
 private:
-
-
 
   Standard_Boolean myIsDone;
   IntPatch_Intersection myIntersector;
@@ -143,13 +128,14 @@ private:
   Handle(GeomAdaptor_HSurface) myHS1;
   Handle(GeomAdaptor_HSurface) myHS2;
   Standard_Integer myNbrestr;
-  Standard_Real myTolReached2d;
-  Standard_Real myTolReached3d;
-  Standard_Real myTolReal;
   Standard_Boolean myApprox;
   Standard_Boolean myApprox1;
   Standard_Boolean myApprox2;
   Standard_Real myTolApprox;
+  Standard_Real myTolF1;
+  Standard_Real myTolF2;
+  Standard_Real myTol;
+  Standard_Real myFuzzyValue;
   IntTools_SequenceOfCurves mySeqOfCurve;
   Standard_Boolean myTangentFaces;
   TopoDS_Face myFace1;
@@ -158,13 +144,6 @@ private:
   IntSurf_ListOfPntOn2S myListOfPnts;
   Handle(IntTools_Context) myContext;
 
-
 };
-
-
-
-
-
-
 
 #endif // _IntTools_FaceFace_HeaderFile

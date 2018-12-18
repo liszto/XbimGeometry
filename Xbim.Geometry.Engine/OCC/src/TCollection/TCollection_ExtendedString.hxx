@@ -73,7 +73,7 @@ public:
   //! Creation by converting an ExtString to an extended string.
   Standard_EXPORT TCollection_ExtendedString(const Standard_ExtString astring);
 
-#if !defined(_WIN32) || defined(_NATIVE_WCHAR_T_DEFINED)
+#if !defined(_MSC_VER) || defined(_NATIVE_WCHAR_T_DEFINED)
   //! Initialize from wide-char string considering it as Unicode string
   //! (the size of wide char is a platform-dependent - e.g. on Windows wchar_t is UTF-16).
   //!
@@ -100,7 +100,18 @@ public:
   
   //! Initializes a ExtendedString with another ExtendedString.
   Standard_EXPORT TCollection_ExtendedString(const TCollection_ExtendedString& astring);
-  
+
+#ifndef OCCT_NO_RVALUE_REFERENCE
+  //! Move constructor
+  TCollection_ExtendedString (TCollection_ExtendedString&& theOther)
+  : mystring (theOther.mystring),
+    mylength (theOther.mylength)
+  {
+    theOther.mystring = NULL;
+    theOther.mylength = 0;
+  }
+#endif
+
   //! Creation by converting an Ascii string to an extended
   //! string. The string is treated as having UTF-8 coding.
   //! If it is not a UTF-8 then each character is copied to ExtCharacter.
@@ -140,7 +151,15 @@ void operator = (const TCollection_ExtendedString& fromwhere)
 {
   Copy(fromwhere);
 }
-  
+
+  //! Exchange the data of two strings (without reallocating memory).
+  Standard_EXPORT void Swap (TCollection_ExtendedString& theOther);
+
+#ifndef OCCT_NO_RVALUE_REFERENCE
+  //! Move assignment operator
+  TCollection_ExtendedString& operator= (TCollection_ExtendedString&& theOther) { Swap (theOther); return *this; }
+#endif
+
   //! Frees memory allocated by ExtendedString.
   Standard_EXPORT ~TCollection_ExtendedString();
   

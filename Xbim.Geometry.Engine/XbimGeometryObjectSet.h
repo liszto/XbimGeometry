@@ -33,8 +33,8 @@ namespace Xbim
 			static TopoDS_Compound CreateCompound(IEnumerable<IXbimGeometryObject^>^ geomObjects);
 		public:
 			static property IXbimGeometryObjectSet^ Empty{IXbimGeometryObjectSet^ get(){ return empty; }};	
-			static IXbimGeometryObjectSet^ PerformBoolean(BOPAlgo_Operation bop, IEnumerable<IXbimGeometryObject^>^ geomObjects, IXbimSolidSet^ solids, double tolerance);
-			static IXbimGeometryObjectSet^ PerformBoolean(BOPAlgo_Operation bop, IXbimGeometryObject^ geomObject, IXbimSolidSet^ solids, double tolerance);
+			static IXbimGeometryObjectSet^ PerformBoolean(BOPAlgo_Operation bop, IEnumerable<IXbimGeometryObject^>^ geomObjects, IXbimSolidSet^ solids, double tolerance, ILogger^ logger);
+			static IXbimGeometryObjectSet^ PerformBoolean(BOPAlgo_Operation bop, IXbimGeometryObject^ geomObject, IXbimSolidSet^ solids, double tolerance, ILogger^ logger);
 
 			XbimGeometryObjectSet::XbimGeometryObjectSet();
 			XbimGeometryObjectSet(IEnumerable<IXbimGeometryObject^>^ objects);
@@ -48,7 +48,7 @@ namespace Xbim
 #pragma endregion
 
 #pragma region IXbimGeometryObjectSet Interface
-			virtual property bool IsValid{bool get(){ return Count>0; }; }
+			virtual property bool IsValid {bool get() { return geometryObjects != nullptr && this != XbimGeometryObjectSet::Empty; }; }
 			virtual property bool IsSet{bool get(){ return true; }; }
 			virtual property IXbimGeometryObject^ First{IXbimGeometryObject^ get(); }
 			virtual property int Count {int get() override; }
@@ -64,13 +64,13 @@ namespace Xbim
 			virtual property IXbimFaceSet^ Faces{IXbimFaceSet^ get(); }
 			virtual property IXbimEdgeSet^ Edges{IXbimEdgeSet^ get(); }
 			virtual property IXbimVertexSet^ Vertices{IXbimVertexSet^ get(); }
-			virtual IXbimGeometryObjectSet^ Cut(IXbimSolidSet^ solids, double tolerance);
-			virtual IXbimGeometryObjectSet^ Cut(IXbimSolid^ solid, double tolerance);
-			virtual IXbimGeometryObjectSet^ Union(IXbimSolidSet^ solids, double tolerance);
-			virtual IXbimGeometryObjectSet^ Union(IXbimSolid^ solid, double tolerance);
+			virtual IXbimGeometryObjectSet^ Cut(IXbimSolidSet^ solids, double tolerance, ILogger^ logger);
+			virtual IXbimGeometryObjectSet^ Cut(IXbimSolid^ solid, double tolerance, ILogger^ logger);
+			virtual IXbimGeometryObjectSet^ Union(IXbimSolidSet^ solids, double tolerance, ILogger^ logger);
+			virtual IXbimGeometryObjectSet^ Union(IXbimSolid^ solid, double tolerance, ILogger^ logger);
 			virtual property String^  ToBRep{String^ get(); }
-			virtual IXbimGeometryObjectSet^ Intersection(IXbimSolidSet^ solids, double tolerance);
-			virtual IXbimGeometryObjectSet^ Intersection(IXbimSolid^ solid, double tolerance);
+			virtual IXbimGeometryObjectSet^ Intersection(IXbimSolidSet^ solids, double tolerance, ILogger^ logger);
+			virtual IXbimGeometryObjectSet^ Intersection(IXbimSolid^ solid, double tolerance, ILogger^ logger);
 			virtual bool Sew();
 #pragma endregion
 			virtual void Add(IXbimGeometryObject^ geomObj){ geometryObjects->Add(geomObj); }
@@ -78,7 +78,7 @@ namespace Xbim
 			// Inherited via XbimSetObject
 			virtual IXbimGeometryObject ^ Transformed(IIfcCartesianTransformationOperator ^ transformation) override;
 			virtual IXbimGeometryObject ^ Moved(IIfcPlacement ^ placement) override;
-			virtual IXbimGeometryObject ^ Moved(IIfcObjectPlacement ^ objectPlacement) override;
+			virtual IXbimGeometryObject ^ Moved(IIfcObjectPlacement ^ objectPlacement, ILogger^ logger) override;
 
 			// Inherited via XbimSetObject
 			virtual void Mesh(IXbimMeshReceiver ^ mesh, double precision, double deflection, double angle) override;

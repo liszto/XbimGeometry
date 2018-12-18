@@ -58,9 +58,11 @@ public:
  public:
   // ---------- PUBLIC METHODS ------------
 
+  //! Empty constructor.
+  NCollection_List() : NCollection_BaseList(Handle(NCollection_BaseAllocator)()) {}
+
   //! Constructor
-  NCollection_List(const Handle(NCollection_BaseAllocator)& theAllocator=0L) :
-    NCollection_BaseList(theAllocator) {}
+  explicit NCollection_List(const Handle(NCollection_BaseAllocator)& theAllocator) : NCollection_BaseList(theAllocator) {}
 
   //! Copy constructor
   NCollection_List (const NCollection_List& theOther) :
@@ -193,10 +195,26 @@ public:
   void RemoveFirst (void) 
   { PRemoveFirst (ListNode::delNode); }
 
-  //! Remove item
+  //! Remove item pointed by iterator theIter; 
+  //! theIter is then set to the next item
   void Remove (Iterator& theIter) 
   { 
     PRemove (theIter, ListNode::delNode); 
+  }
+
+  //! Remove the first occurrence of the object.
+  template<typename TheValueType> // instantiate this method on first call only for types defining equality operator
+  Standard_Boolean Remove (const TheValueType& theObject)
+  {
+    for (Iterator anIter (*this); anIter.More(); anIter.Next())
+    {
+      if (anIter.Value() == theObject)
+      {
+        Remove (anIter);
+        return Standard_True;
+      }
+    }
+    return Standard_False;
   }
 
   //! InsertBefore
@@ -269,6 +287,20 @@ public:
   //! Reverse the list
   void Reverse ()
   { PReverse(); }
+
+  //! Return true if object is stored in the list.
+  template<typename TheValueType> // instantiate this method on first call only for types defining equality operator
+  Standard_Boolean Contains (const TheValueType& theObject) const
+  {
+    for (Iterator anIter (*this); anIter.More(); anIter.Next())
+    {
+      if (anIter.Value() == theObject)
+      {
+        return Standard_True;
+      }
+    }
+    return Standard_False;
+  }
 
   //! Destructor - clears the List
   virtual ~NCollection_List (void)

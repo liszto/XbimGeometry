@@ -94,6 +94,10 @@ public:
   void SetRange2(const Standard_Real aT1, const Standard_Real aT2);
   
 
+  //! Sets the Fuzzy value
+  void SetFuzzyValue (const Standard_Real theFuzz);
+  
+  
   //! Performs the intersection between edges
   Standard_EXPORT void Perform();
   
@@ -102,6 +106,10 @@ public:
   Standard_Boolean IsDone() const;
   
 
+  //! Returns Fuzzy value
+  Standard_Real FuzzyValue() const;
+  
+  
   //! Returns common parts
   const IntTools_SequenceOfCommonPrts& CommonParts() const;
 
@@ -148,7 +156,7 @@ protected:
     const IntTools_SequenceOfRanges& theRanges2, const Standard_Boolean bSplit2);
   
 
-  //! Looking for the range of the edge whick is in the box
+  //! Looking for the range of the edge which is in the box
   Standard_EXPORT static Standard_Boolean FindParameters(const BRepAdaptor_Curve& theBAC,
     const Standard_Real aT1, const Standard_Real aT2, const Standard_Real theTol,
     const Standard_Real theRes, const Standard_Real thePTol,
@@ -190,6 +198,7 @@ protected:
   Standard_Real myTol1;
   Standard_Real myTol2;
   Standard_Real myTol;
+  Standard_Real myFuzzyValue;
   Standard_Real myRes1;
   Standard_Real myRes2;
   Standard_Real myResCoeff1;

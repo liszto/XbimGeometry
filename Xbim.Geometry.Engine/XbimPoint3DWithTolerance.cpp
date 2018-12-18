@@ -7,36 +7,54 @@ namespace Xbim
 {
 	namespace Geometry
 	{
+		void XbimPoint3DWithTolerance::CalculateHashCode()
+		{
+			double gridDim = tolerance * 10.; //coursen  up
+											  //This hashcode snaps points to a grid of 10 * tolerance to ensure similar points fall into the same hash cell
+			double xs = point.X - std::fmod(point.X, gridDim);
+			double ys = point.Y - std::fmod(point.Y, gridDim);
+			double zs = point.Z - std::fmod(point.Z, gridDim);
+			int hash = (int)2166136261;
+			hash = hash * 16777619 ^ xs.GetHashCode();
+			hash = hash * 16777619 ^ ys.GetHashCode();
+			hashCode = hash * 16777619 ^ zs.GetHashCode();
+		}
+
 		XbimPoint3DWithTolerance::XbimPoint3DWithTolerance(XbimPoint3D p, double t)
 		{
 			point = p;
 			tolerance = t; 
+			CalculateHashCode();
 		}
 		
 		XbimPoint3DWithTolerance::XbimPoint3DWithTolerance(double x, double y, double z, double t)
 		{
 			point = XbimPoint3D(x, y, z);
 			tolerance = t; 
+			CalculateHashCode();
 		}
 		XbimPoint3DWithTolerance::XbimPoint3DWithTolerance(IXbimPoint^ p)
 		{
 			point = p->Point;
 			tolerance = p->Tolerance;
+			CalculateHashCode();
 			
 		}
 
-		XbimPoint3DWithTolerance::XbimPoint3DWithTolerance(IIfcPointOnCurve^ point)
+		XbimPoint3DWithTolerance::XbimPoint3DWithTolerance(IIfcPointOnCurve^ point, ILogger^ logger)
 		{
-			XbimWire^ w = gcnew XbimWire(point->BasisCurve);
+			XbimWire^ w = gcnew XbimWire(point->BasisCurve, logger);
 			this->point = w->PointAtParameter(point->PointParameter);
 			this->tolerance = point->Model->ModelFactors->Precision;
+			CalculateHashCode();
 		}
 
-		XbimPoint3DWithTolerance::XbimPoint3DWithTolerance(IIfcPointOnSurface^ point)
+		XbimPoint3DWithTolerance::XbimPoint3DWithTolerance(IIfcPointOnSurface^ point, ILogger^ logger)
 		{
-			XbimFace^ f = gcnew XbimFace(point->BasisSurface);
+			XbimFace^ f = gcnew XbimFace(point->BasisSurface, logger);
 			this->point = f->PointAtParameters(point->PointParameterU, point->PointParameterV);
 			this->tolerance = point->Model->ModelFactors->Precision;
+			CalculateHashCode();
 		}
 
 		String^ XbimPoint3DWithTolerance::ToBRep::get()
@@ -75,17 +93,8 @@ namespace Xbim
 		}
 
 		int XbimPoint3DWithTolerance::GetHashCode()
-		{
-			double gridDim = tolerance * 10.; //coursen  up
-			//This hashcode snaps points to a grid of 100 * tolerance to ensure similar points fall into the same hash cell
-			double xs = point.X - std::fmod(point.X, gridDim);
-			double ys = point.Y - std::fmod(point.Y, gridDim);
-			double zs = point.Z - std::fmod(point.Z, gridDim);
-			int hash = (int)2166136261;
-			hash = hash * 16777619 ^ xs.GetHashCode();
-			hash = hash * 16777619 ^ ys.GetHashCode();
-			hash = hash * 16777619 ^ zs.GetHashCode();	
-			return hash;
+		{			
+			return hashCode; //we can precacluate this as essentially this object is immutable
 		}
 
 		bool XbimPoint3DWithTolerance::operator ==(XbimPoint3DWithTolerance^ left, XbimPoint3DWithTolerance^ right)

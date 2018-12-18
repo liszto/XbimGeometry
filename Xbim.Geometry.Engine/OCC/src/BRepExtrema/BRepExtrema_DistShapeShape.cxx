@@ -36,10 +36,10 @@
 #include <BRep_Tool.hxx>
 #include <BRepClass3d_SolidClassifier.hxx>
 #include <NCollection_Comparator.hxx>
-#include <NCollection_QuickSort.hxx>
 #include <NCollection_Vector.hxx>
 #include <StdFail_NotDone.hxx>
 
+#include <algorithm>
 namespace
 {
 
@@ -91,38 +91,14 @@ namespace
       Index2   (theIndex2),
       Distance (theDistance) {}
   };
+
+  // Used by std::sort function
+  static Standard_Boolean BRepExtrema_CheckPair_Comparator (const BRepExtrema_CheckPair& theLeft,
+                                                            const BRepExtrema_CheckPair& theRight)
+  {
+    return (theLeft.Distance < theRight.Distance);
+  }
 }
-
-template<>
-class NCollection_Comparator<BRepExtrema_CheckPair>
-{
-public:
-
-  Standard_Boolean IsLower (const BRepExtrema_CheckPair& theLeft, const BRepExtrema_CheckPair& theRight) const
-  {
-    return theLeft.Distance < theRight.Distance;
-  }
-
-  Standard_Boolean IsGreater (const BRepExtrema_CheckPair& theLeft, const BRepExtrema_CheckPair& theRight) const
-  {
-    return theLeft.Distance > theRight.Distance;
-  }
-
-  Standard_Boolean IsEqual (const BRepExtrema_CheckPair& theLeft, const BRepExtrema_CheckPair& theRight) const
-  {
-    return theLeft.Distance == theRight.Distance;
-  }
-
-  Standard_Boolean IsLowerEqual (const BRepExtrema_CheckPair& theLeft, const BRepExtrema_CheckPair& theRight) const
-  {
-    return theLeft.Distance <= theRight.Distance;
-  }
-
-  Standard_Boolean IsGreaterEqual (const BRepExtrema_CheckPair& theLeft, const BRepExtrema_CheckPair& theRight) const
-  {
-    return theLeft.Distance >= theRight.Distance;
-  }
-};
 
 //=======================================================================
 //function : DistanceMapMap
@@ -141,7 +117,15 @@ void BRepExtrema_DistShapeShape::DistanceMapMap (const TopTools_IndexedMapOfShap
   {
     for (Standard_Integer anIdx2 = 1; anIdx2 <= aCount2; ++anIdx2)
     {
-      const Standard_Real aDist = theLBox1.Value (anIdx1).Distance (theLBox2.Value (anIdx2));
+      const Bnd_Box& aBox1 = theLBox1.Value (anIdx1);
+      const Bnd_Box& aBox2 = theLBox2.Value (anIdx2);
+      if (aBox1.IsVoid()
+       || aBox2.IsVoid())
+      {
+        continue;
+      }
+
+      const Standard_Real aDist = aBox1.Distance (aBox2);
       if (aDist < myDistRef - myEps || fabs (aDist - myDistRef) < myEps)
       {
         aPairList.Append (BRepExtrema_CheckPair (anIdx1, anIdx2, aDist));
@@ -149,8 +133,8 @@ void BRepExtrema_DistShapeShape::DistanceMapMap (const TopTools_IndexedMapOfShap
     }
   }
 
-  NCollection_QuickSort<NCollection_Vector<BRepExtrema_CheckPair>, BRepExtrema_CheckPair>::Perform (aPairList, NCollection_Comparator<BRepExtrema_CheckPair>(),
-                                                                                                    aPairList.Lower(), aPairList.Upper());
+  std::stable_sort(aPairList.begin(), aPairList.end(), BRepExtrema_CheckPair_Comparator);
+
   for (NCollection_Vector<BRepExtrema_CheckPair>::Iterator aPairIter (aPairList);
        aPairIter.More(); aPairIter.Next())
   {
@@ -426,7 +410,7 @@ Standard_Boolean BRepExtrema_DistShapeShape::Perform()
 Standard_Real BRepExtrema_DistShapeShape::Value() const 
 { 
   if (!myIsDone)
-    StdFail_NotDone::Raise("BRepExtrema_DistShapeShape::Value: There's no solution ");
+    throw StdFail_NotDone("BRepExtrema_DistShapeShape::Value: There's no solution ");
 
   return myDistRef;
 }
@@ -439,7 +423,7 @@ Standard_Real BRepExtrema_DistShapeShape::Value() const
 TopoDS_Shape BRepExtrema_DistShapeShape::SupportOnShape1(const Standard_Integer N) const
 { 
   if (!myIsDone)
-    StdFail_NotDone::Raise("BRepExtrema_DistShapeShape::SupportOnShape1: There's no solution ");
+    throw StdFail_NotDone("BRepExtrema_DistShapeShape::SupportOnShape1: There's no solution ");
 
   const BRepExtrema_SolutionElem &sol = mySolutionsShape1.Value(N);
   switch (sol.SupportKind())
@@ -459,7 +443,7 @@ TopoDS_Shape BRepExtrema_DistShapeShape::SupportOnShape1(const Standard_Integer 
 TopoDS_Shape BRepExtrema_DistShapeShape::SupportOnShape2(const Standard_Integer N) const 
 { 
   if (!myIsDone)
-    StdFail_NotDone::Raise("BRepExtrema_DistShapeShape::SupportOnShape2: There's no solution ");
+    throw StdFail_NotDone("BRepExtrema_DistShapeShape::SupportOnShape2: There's no solution ");
 
   const BRepExtrema_SolutionElem &sol = mySolutionsShape2.Value(N);
   switch (sol.SupportKind())
@@ -479,12 +463,11 @@ TopoDS_Shape BRepExtrema_DistShapeShape::SupportOnShape2(const Standard_Integer 
 void BRepExtrema_DistShapeShape::ParOnEdgeS1(const Standard_Integer N, Standard_Real& t) const 
 { 
   if (!myIsDone)
-    StdFail_NotDone::Raise("BRepExtrema_DistShapeShape::ParOnEdgeS1: There's no solution");
+    throw StdFail_NotDone("BRepExtrema_DistShapeShape::ParOnEdgeS1: There's no solution");
 
   const BRepExtrema_SolutionElem &sol = mySolutionsShape1.Value(N);
   if (sol.SupportKind() != BRepExtrema_IsOnEdge)
-    BRepExtrema_UnCompatibleShape::Raise
-      ("BRepExtrema_DistShapeShape::ParOnEdgeS1: ParOnEdgeS1 is impossible without EDGE");
+    throw BRepExtrema_UnCompatibleShape("BRepExtrema_DistShapeShape::ParOnEdgeS1: ParOnEdgeS1 is impossible without EDGE");
 
   sol.EdgeParameter(t);
 }
@@ -497,12 +480,11 @@ void BRepExtrema_DistShapeShape::ParOnEdgeS1(const Standard_Integer N, Standard_
 void BRepExtrema_DistShapeShape::ParOnEdgeS2(const Standard_Integer N,  Standard_Real& t) const 
 { 
   if (!myIsDone)
-    StdFail_NotDone::Raise("BRepExtrema_DistShapeShape::ParOnEdgeS2: There's no solution");
+    throw StdFail_NotDone("BRepExtrema_DistShapeShape::ParOnEdgeS2: There's no solution");
 
   const BRepExtrema_SolutionElem &sol = mySolutionsShape2.Value(N);
   if (sol.SupportKind() != BRepExtrema_IsOnEdge)
-    BRepExtrema_UnCompatibleShape::Raise
-      ("BRepExtrema_DistShapeShape::ParOnEdgeS2: ParOnEdgeS2 is impossible without EDGE");
+    throw BRepExtrema_UnCompatibleShape("BRepExtrema_DistShapeShape::ParOnEdgeS2: ParOnEdgeS2 is impossible without EDGE");
  
   sol.EdgeParameter(t);
 }
@@ -515,12 +497,11 @@ void BRepExtrema_DistShapeShape::ParOnEdgeS2(const Standard_Integer N,  Standard
 void BRepExtrema_DistShapeShape::ParOnFaceS1(const Standard_Integer N,  Standard_Real& u,  Standard_Real& v) const 
 { 
   if (!myIsDone)
-    StdFail_NotDone::Raise("BRepExtrema_DistShapeShape::ParOnFaceS1: There's no solution");
+    throw StdFail_NotDone("BRepExtrema_DistShapeShape::ParOnFaceS1: There's no solution");
 
   const BRepExtrema_SolutionElem &sol = mySolutionsShape1.Value(N);
   if (sol.SupportKind() != BRepExtrema_IsInFace)
-    BRepExtrema_UnCompatibleShape::Raise
-      ("BRepExtrema_DistShapeShape::ParOnFaceS1: ParOnFaceS1 is impossible without FACE");
+    throw BRepExtrema_UnCompatibleShape("BRepExtrema_DistShapeShape::ParOnFaceS1: ParOnFaceS1 is impossible without FACE");
   
   sol.FaceParameter(u, v);
 }
@@ -533,12 +514,11 @@ void BRepExtrema_DistShapeShape::ParOnFaceS1(const Standard_Integer N,  Standard
 void BRepExtrema_DistShapeShape::ParOnFaceS2(const Standard_Integer N,  Standard_Real& u, Standard_Real& v) const 
 { 
   if (!myIsDone)
-    StdFail_NotDone::Raise("BRepExtrema_DistShapeShape::ParOnFaceS2: There's no solution");
+    throw StdFail_NotDone("BRepExtrema_DistShapeShape::ParOnFaceS2: There's no solution");
 
   const BRepExtrema_SolutionElem &sol = mySolutionsShape2.Value(N);
   if (sol.SupportKind() != BRepExtrema_IsInFace)
-    BRepExtrema_UnCompatibleShape::Raise
-      ("BRepExtrema_DistShapeShape::ParOnFaceS2:ParOnFaceS2 is impossible without FACE ");
+    throw BRepExtrema_UnCompatibleShape("BRepExtrema_DistShapeShape::ParOnFaceS2:ParOnFaceS2 is impossible without FACE ");
   
   sol.FaceParameter(u, v);
 }

@@ -39,13 +39,12 @@
 #include <IntCurveSurface_HInter.hxx>
 #include <IntCurveSurface_IntersectionPoint.hxx>
 #include <IntTools.hxx>
-#include <IntTools_Array1OfRange.hxx>
 #include <IntTools_BeanFaceIntersector.hxx>
 #include <IntTools_CArray1OfInteger.hxx>
-#include <IntTools_CArray1OfReal.hxx>
 #include <IntTools_CommonPrt.hxx>
 #include <IntTools_Context.hxx>
 #include <IntTools_EdgeFace.hxx>
+#include <IntTools_FClass2d.hxx>
 #include <IntTools_Range.hxx>
 #include <IntTools_Root.hxx>
 #include <IntTools_Tools.hxx>
@@ -61,10 +60,6 @@ static
   Standard_Boolean IsRadius (const BRepAdaptor_Curve& aCurve ,
                              const BRepAdaptor_Surface& aSurface,
                              const Standard_Real aCriteria);
-static
-  Standard_Integer AdaptiveDiscret (const Standard_Integer iDiscret,
-                                    const BRepAdaptor_Curve& aCurve ,
-                                    const BRepAdaptor_Surface& aSurface);
 
 //=======================================================================
 //function : IntTools_EdgeFace::IntTools_EdgeFace
@@ -72,171 +67,11 @@ static
 //=======================================================================
   IntTools_EdgeFace::IntTools_EdgeFace()
 {
-  myTolE=1.e-7;
-  myTolF=1.e-7;
-  myDiscret=30;
-  myEpsT   =1e-12;
-  myDeflection=0.01;
+  myFuzzyValue = Precision::Confusion();
   myIsDone=Standard_False;
   myErrorStatus=1;
   myQuickCoincidenceCheck=Standard_False;
 }
-//=======================================================================
-//function : SetContext
-//purpose  : 
-//=======================================================================
-void IntTools_EdgeFace::SetContext(const Handle(IntTools_Context)& theContext) 
-{
-  myContext = theContext;
-}
-
-//=======================================================================
-//function : Context
-//purpose  : 
-//=======================================================================
-const Handle(IntTools_Context)& IntTools_EdgeFace::Context()const 
-{
-  return myContext;
-}
-//=======================================================================
-//function : SetEdge
-//purpose  : 
-//=======================================================================
-void IntTools_EdgeFace::SetEdge(const TopoDS_Edge& anEdge)
-{
-  myEdge=anEdge;
-}
-//=======================================================================
-//function : SetFace
-//purpose  : 
-//=======================================================================
-void IntTools_EdgeFace::SetFace(const TopoDS_Face& aFace)
-{
-  myFace=aFace;
-}
-//=======================================================================
-//function : SetTolE
-//purpose  : 
-//=======================================================================
-void IntTools_EdgeFace::SetTolE(const Standard_Real aTol) 
-{
-  myTolE=aTol;
-} 
-//=======================================================================
-//function : SetTolF
-//purpose  : 
-//=======================================================================
-void IntTools_EdgeFace::SetTolF(const Standard_Real aTol) 
-{
-  myTolF=aTol;
-} 
-//=======================================================================
-//function : Edge
-//purpose  : 
-//=======================================================================
-const TopoDS_Edge& IntTools_EdgeFace::Edge()const 
-{
-  return myEdge;
-}
-//=======================================================================
-//function : Face
-//purpose  : 
-//=======================================================================
-const TopoDS_Face& IntTools_EdgeFace::Face()const 
-{
-  return myFace;
-}
-//=======================================================================
-//function : TolE
-//purpose  : 
-//=======================================================================
-Standard_Real IntTools_EdgeFace::TolE()const 
-{
-  return myTolE;
-}
- //=======================================================================
-//function : TolF
-//purpose  : 
-//=======================================================================
-Standard_Real IntTools_EdgeFace::TolF()const 
-{
-  return myTolF;
-} 
-//=======================================================================
-//function : SetDiscretize
-//purpose  : 
-//=======================================================================
-void IntTools_EdgeFace::SetDiscretize(const Standard_Integer aDiscret)
-{
-  myDiscret=aDiscret;
-}
-//=======================================================================
-//function : SetDeflection
-//purpose  : 
-//=======================================================================
-void IntTools_EdgeFace::SetDeflection(const Standard_Real aDefl) 
-{
-  myDeflection=aDefl;
-} 
-//=======================================================================
-//function : SetEpsilonT
-//purpose  : 
-//=======================================================================
-void IntTools_EdgeFace::SetEpsilonT(const Standard_Real anEpsT) 
-{
-  myEpsT=anEpsT;
-} 
-//=======================================================================
-//function : SetRange
-//purpose  : 
-//=======================================================================
-void IntTools_EdgeFace::SetRange(const Standard_Real aFirst,
-                                 const Standard_Real aLast) 
-{
-  myRange.SetFirst (aFirst);
-  myRange.SetLast  (aLast);
-} 
-
-//=======================================================================
-//function : SetRange
-//purpose  : 
-//=======================================================================
-void IntTools_EdgeFace::SetRange(const IntTools_Range& aRange) 
-{
-  SetRange(aRange.First(), aRange.Last());
-} 
-//=======================================================================
-//function : IsDone
-//purpose  : 
-//=======================================================================
-Standard_Boolean IntTools_EdgeFace::IsDone()const 
-{
-  return myIsDone;
-} 
-//=======================================================================
-//function : ErrorStatus
-//purpose  : 
-//=======================================================================
-Standard_Integer IntTools_EdgeFace::ErrorStatus()const 
-{
-  return myErrorStatus;
-}
-//=======================================================================
-//function : CommonParts
-//purpose  : 
-//=======================================================================
-const IntTools_SequenceOfCommonPrts& IntTools_EdgeFace::CommonParts() const 
-{
-  return mySeqOfCommonPrts;
-}
-//=======================================================================
-//function : Range
-//purpose  : 
-//=======================================================================
-const IntTools_Range&  IntTools_EdgeFace::Range() const
-{
-  return myRange;
-} 
 //=======================================================================
 //function :  IsCoincident
 //purpose  : 
@@ -252,7 +87,11 @@ Standard_Boolean IntTools_EdgeFace::IsCoincident()
   //
   GeomAPI_ProjectPointOnSurf& aProjector=myContext->ProjPS(myFace);
 
-  const Standard_Integer aNbSeg=23;
+  Standard_Integer aNbSeg=23;
+  if (myC.GetType() == GeomAbs_Line &&
+      myS.GetType() == GeomAbs_Plane)
+    aNbSeg = 2; // Check only three points for Line/Plane intersection
+
   const Standard_Real aTresh=0.5;
   const Standard_Integer aTreshIdxF = RealToInt((aNbSeg+1)*0.25),
                          aTreshIdxL = RealToInt((aNbSeg+1)*0.75);
@@ -328,167 +167,7 @@ void IntTools_EdgeFace::CheckData()
      myErrorStatus=3;
   }
 }
-//=======================================================================
-//function : Prepare
-//purpose  : 
-//=======================================================================
-void IntTools_EdgeFace::Prepare() 
-{
-  Standard_Integer pri;
-  Standard_Real aTmin, aTmax;
-  IntTools_CArray1OfReal aPars;
- 
-  //
-  // 1.Prepare Curve's data and Surface's data
-  myC.Initialize(myEdge);
-  GeomAbs_CurveType aCurveType;
-  aCurveType=myC.GetType();
-  //
-  // 2.Prepare myCriteria
-  if (aCurveType==GeomAbs_BSplineCurve||
-    aCurveType==GeomAbs_BezierCurve) {
-    myCriteria=1.5*myTolE+myTolF;
-  }
-  else {
-    myCriteria = myTolE + myTolF + Precision::Confusion();
-  }
-  // 2.a myTmin, myTmax
-  aTmin=myRange.First();
-  aTmax=myRange.Last();
-  // 2.b myFClass2d
-  myS.Initialize (myFace,Standard_True);
-  myFClass2d.Init(myFace, 1.e-6);
-  //
-  // 2.c Prepare adaptive myDiscret
-  myDiscret=AdaptiveDiscret(myDiscret, myC, myS);
-  //
-  //
-  // 3.Prepare myPars 
-  pri = IntTools::PrepareArgs(myC, aTmax, aTmin, 
-                              myDiscret, myDeflection, aPars);
-  if (pri) {
-    myErrorStatus=6;
-    return;
-  }
-  // 4.
-  //ProjectableRanges
-  Standard_Integer i, iProj, aNb, aNbProj, ind0, ind1;
-  Standard_Real t0, t1, tRoot;
-  
-  //
-  // Table of Projection's function values
-  aNb=aPars.Length();
-  IntTools_CArray1OfInteger anArrProjectability;
-  anArrProjectability.Resize(aNb);
-  
-  for (iProj=0, i=0; i<aNb; i++) {
-    t0=aPars(i);
-    aNbProj=IsProjectable (t0); 
-    
-    anArrProjectability(i)=0;
-    if (aNbProj) {
-      anArrProjectability(i)=1;
-      iProj++;
-    }
-  }
-  //
-  // Checking
-  if (!iProj ) {
-    myErrorStatus=7;
-    return;
-  }
-  
-  //
-  // Projectable Ranges
-  IntTools_Range aRange;
-  
-  ind0=anArrProjectability(0);
-  if (ind0) {
-    t0=aPars(0);
-    aRange.SetFirst(t0);
-  }
-  
-  for(i=1; i<aNb; i++) {
-    ind1=anArrProjectability(i);
-    t0=aPars(i-1);
-    t1=aPars(i);
 
-    if (i==(aNb-1)) {
-      if (ind1 && ind0) {
- aRange.SetLast(t1);
- myProjectableRanges.Append(aRange);
-      }
-      if (ind1 && !ind0) {
- FindProjectableRoot(t0, t1, ind0, ind1, tRoot);
- aRange.SetFirst(tRoot);
- aRange.SetLast(t1);
- myProjectableRanges.Append(aRange);
-      }
-      //
-      if (ind0 && !ind1) {
- FindProjectableRoot(t0, t1, ind0, ind1, tRoot);
- aRange.SetLast(tRoot);
- myProjectableRanges.Append(aRange);
-      }
-      //
-      break;
-    }
-    
-    if (ind0 != ind1) {
-      FindProjectableRoot(t0, t1, ind0, ind1, tRoot);
-      
-      if (ind0 && !ind1) {
- aRange.SetLast(tRoot);
- myProjectableRanges.Append(aRange);
-      }
-      else {
- aRange.SetFirst(tRoot);
-      }
-    } // if (ind0 != ind1)
-    ind0=ind1;
-  } // for(i=1; i<aNb; i++) {
-}
-
-//=======================================================================
-//function : FindProjectableRoot
-//purpose  : 
-//=======================================================================
-  void IntTools_EdgeFace::FindProjectableRoot (const Standard_Real tt1,
-                                               const Standard_Real tt2,
-                                               const Standard_Integer ff1,
-                                               const Standard_Integer /*ff2*/,
-                                               Standard_Real& tRoot)
-{
-  Standard_Real tm, t1, t2, aEpsT;
-  Standard_Integer anIsProj1, anIsProjm;
-  aEpsT = 0.5 * myEpsT;
-
-  // Root is inside [tt1, tt2]
-  t1 = tt1;
-  t2 = tt2;
-  anIsProj1 =  ff1;
-
-  for(;;)
-  {
-    if (fabs(t1 - t2) < aEpsT)
-    {
-      tRoot = (anIsProj1) ? t1 : t2;
-      return;
-    }
-    tm = 0.5 * (t1 + t2);
-    anIsProjm = IsProjectable(tm);
-
-    if (anIsProjm != anIsProj1)
-    {
-      t2 = tm;
-    }
-    else
-    {
-      t1 = tm;
-      anIsProj1 = anIsProjm;
-    }
-  } // for(;;)
-}
 //=======================================================================
 //function : IsProjectable
 //purpose  : 
@@ -538,7 +217,7 @@ Standard_Real IntTools_EdgeFace::DistanceFunction
   //
   
   if (!bFlag) {
-    myErrorStatus=11;
+    myErrorStatus = 4;
     return 99.;
   }
   
@@ -673,6 +352,11 @@ Standard_Boolean IntTools_EdgeFace::CheckTouch
   (const IntTools_CommonPrt& aCP,
    Standard_Real&            aTx) 
 {
+  if (myC.GetType() == GeomAbs_Line &&
+      myS.GetType() == GeomAbs_Plane) {
+    return Standard_False;
+  }
+  //
   Standard_Real aTF, aTL, Tol, U1f, U1l, V1f, V1l, af, al,aDist2, aMinDist2;
   Standard_Boolean theflag=Standard_False;
   Standard_Integer aNbExt, iLower;
@@ -778,11 +462,11 @@ Standard_Boolean IntTools_EdgeFace::CheckTouch
     return theflag;
   }
   
-  if (fabs (aTx-aTF) < myEpsT) {
+  if (fabs (aTx-aTF) < Precision::PConfusion()) {
     return !theflag;
   }
 
-  if (fabs (aTx-aTL) < myEpsT) {
+  if (fabs (aTx-aTL) < Precision::PConfusion()) {
     return !theflag;
   }
 
@@ -820,39 +504,37 @@ void IntTools_EdgeFace::Perform()
   aCurveType=myC.GetType();
   //
   // Prepare myCriteria
-  if (aCurveType==GeomAbs_BSplineCurve||
+  Standard_Real aFuzz = myFuzzyValue / 2.;
+  Standard_Real aTolF = BRep_Tool::Tolerance(myFace) + aFuzz;
+  Standard_Real aTolE = BRep_Tool::Tolerance(myEdge) + aFuzz;
+  if (aCurveType == GeomAbs_BSplineCurve ||
       aCurveType==GeomAbs_BezierCurve) {
     //--- 5112
-    Standard_Real diff1 = (myTolE/myTolF);
-    Standard_Real diff2 = (myTolF/myTolE);
+    Standard_Real diff1 = (aTolE/aTolF);
+    Standard_Real diff2 = (aTolF/aTolE);
     if( diff1 > 100 || diff2 > 100 ) {
-      myCriteria = Max(myTolE,myTolF);
+      myCriteria = Max(aTolE,aTolF);
     }
     else //--- 5112
-      myCriteria=1.5*myTolE+myTolF;
+      myCriteria = 1.5*aTolE + aTolF;
   }
   else {
-    myCriteria = myTolE + myTolF + Precision::Confusion();
+    myCriteria = aTolE + aTolF;
   }
   
-  myS.Initialize (myFace,Standard_True);
+  myS = myContext->SurfaceAdaptor(myFace);
   
-  if(myContext.IsNull()) {
-    myFClass2d.Init(myFace, 1.e-6);
-  }
-  //
   if (myQuickCoincidenceCheck) {
     if (IsCoincident()) {
       aCommonPrt.SetType(TopAbs_EDGE);
       aCommonPrt.SetRange1(myRange.First(), myRange.Last());
-      MakeType (aCommonPrt); 
       mySeqOfCommonPrts.Append(aCommonPrt);
       myIsDone=Standard_True;
       return;
     }
   }
   //
-  IntTools_BeanFaceIntersector anIntersector(myC, myS, myTolE, myTolF);
+  IntTools_BeanFaceIntersector anIntersector(myC, myS, aTolE, aTolF);
   anIntersector.SetBeanParameters(myRange.First(), myRange.Last());
   //
   anIntersector.SetContext(myContext);
@@ -951,16 +633,6 @@ void IntTools_EdgeFace::Perform()
   }
   myIsDone=Standard_True;
 }
-
-//
-// myErrorStatus
-// 1 - the method Perform() is not invoked  
-// 2,3,4,5 -the method CheckData() fails
-// 6 - PrepareArgs() problems
-// 7 - No Projectable ranges
-// 8,9 - PrepareArgs() problems occured inside  projectable Ranges
-// 11 - can't fill array  aFunc(i) in PrepareArgsFuncArrays 
-
 
 //=======================================================================
 //function : CheckTouch 
@@ -1147,7 +819,3 @@ Standard_Integer AdaptiveDiscret (const Standard_Integer iDiscret,
   }
   return iDiscretNew;
 }
-
-#ifdef _MSC_VER
-#pragma warning ( default : 4101 )
-#endif

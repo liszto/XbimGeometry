@@ -133,10 +133,10 @@ const Standard_Boolean               SameOrientation
 
   Standard_Integer TheFirst = C->FirstUKnotIndex ();
   Standard_Integer TheLast  = C->LastUKnotIndex  ();
-  if (FromK1 == ToK2)  Standard_DomainError::Raise();
+  if (FromK1 == ToK2)  throw Standard_DomainError();
   Standard_Integer FirstK = Min (FromK1, ToK2);
   Standard_Integer LastK  = Max (FromK1, ToK2);
-  if (FirstK < TheFirst || LastK > TheLast) Standard_OutOfRange::Raise();
+  if (FirstK < TheFirst || LastK > TheLast) throw Standard_OutOfRange();
 
   Handle(Geom2d_BSplineCurve) NewCurve = Handle(Geom2d_BSplineCurve)::DownCast(C->Copy());
 
@@ -383,10 +383,10 @@ const Convert_ParameterisationType  Parameterisation)
 					  MaxSegments, MaxDegree);
       if (ApprCOffs.HasResult())
 	TheCurve = ApprCOffs.Curve();
-      else  Standard_ConstructionError::Raise();
+      else  throw Standard_ConstructionError();
     }
 
-    else { Standard_DomainError::Raise("No such curve"); }
+    else { throw Standard_DomainError("No such curve"); }
     
   }
   
@@ -449,10 +449,10 @@ const Convert_ParameterisationType  Parameterisation)
 					  MaxSegments, MaxDegree);
       if (ApprCOffs.HasResult())
 	TheCurve = ApprCOffs.Curve();
-      else  Standard_ConstructionError::Raise();
+      else  throw Standard_ConstructionError();
     }
 
-    else { Standard_DomainError::Raise(); }
+    else { throw Standard_DomainError(); }
   }
   
   return TheCurve;
@@ -522,7 +522,7 @@ static Handle(Geom2d_BSplineCurve) MultNumandDenom(const Handle(Geom2d_BSplineCu
   Standard_Real                      tolerance=Precision::Confusion();
   Standard_Integer                   resNbPoles,degree,
                                      ii,jj,
-				     Status;
+				     aStatus;
   
   BS->Knots(BSKnots);                            
   BS->Multiplicities(BSMults);
@@ -560,7 +560,7 @@ static Handle(Geom2d_BSplineCurve) MultNumandDenom(const Handle(Geom2d_BSplineCu
 			     resFlatKnots,
 			     degree,
 			     resNumPoles,
-			     Status);
+			     aStatus);
   BSplCLib::FunctionMultiply(ev,
 			     BS->Degree(),
 			     BSFlatKnots,
@@ -568,7 +568,7 @@ static Handle(Geom2d_BSplineCurve) MultNumandDenom(const Handle(Geom2d_BSplineCu
 			     resFlatKnots,
 			     degree,
 			     resDenPoles,
-			     Status);
+			     aStatus);
 //  BSplCLib::FunctionMultiply(law_evaluator,
 //			     BS->Degree(),
 //			     BSFlatKnots,
@@ -576,7 +576,7 @@ static Handle(Geom2d_BSplineCurve) MultNumandDenom(const Handle(Geom2d_BSplineCu
 //			     resFlatKnots,
 //			     degree,
 //			     resNumPoles,
-//			     Status);
+//			     aStatus);
 //  BSplCLib::FunctionMultiply(law_evaluator,
 //			     BS->Degree(),
 //			     BSFlatKnots,
@@ -584,7 +584,7 @@ static Handle(Geom2d_BSplineCurve) MultNumandDenom(const Handle(Geom2d_BSplineCu
 //			     resFlatKnots,
 //			     degree,
 //			     resDenPoles,
-//			     Status);
+//			     aStatus);
   for (ii=1;ii<=resNbPoles;ii++)
     for(jj=1;jj<=2;jj++) 
       resPoles(ii).SetCoord(jj,resNumPoles(ii).Coord(jj)/resDenPoles(ii));
@@ -875,7 +875,7 @@ static GeomAbs_Shape Continuity(const Handle(Geom2d_Curve)& C1,
     }
   }
   else
-    Standard_Failure::Raise("Courbes non jointives");
+    throw Standard_Failure("Non-Contiguous Areas");
   return cont ;
 }
 
@@ -968,7 +968,7 @@ void  Geom2dConvert::ConcatG1(TColGeom2d_Array1OfBSplineCurve&           ArrayOf
 		    PreLast,First,
 		    Standard_True,
 		    Standard_True)<GeomAbs_C0)
-       Standard_ConstructionError::Raise("Geom2dConvert curves not C0") ;                //renvoi d'une erreur
+       throw Standard_ConstructionError("Geom2dConvert curves not C0") ;                //renvoi d'une erreur
      else{
        if (Continuity(ArrayOfCurves(i-1),
 		      ArrayOfCurves(i),
@@ -1025,6 +1025,7 @@ void  Geom2dConvert::ConcatG1(TColGeom2d_Array1OfBSplineCurve&           ArrayOf
    for (j=1;j<=nb_curve-1;j++){                //boucle secondaire a l'interieur de chaque groupe
      Curve1=ArrayOfCurves(j);
      if ( (j==(nb_curve-1)) &&(Need2DegRepara(ArrayOfCurves))){ 
+       const Standard_Integer aNewCurveDegree = Min(2 * Curve1->Degree(), Geom2d_BSplineCurve::MaxDegree());
        Curve2->D1(Curve2->LastParameter(),Pint,Vec1);
        Curve1->D1(Curve1->FirstParameter(),Pint,Vec2);
        lambda=Vec2.Magnitude()/Vec1.Magnitude();
@@ -1061,7 +1062,7 @@ void  Geom2dConvert::ConcatG1(TColGeom2d_Array1OfBSplineCurve&           ArrayOf
        
        BSplCLib::KnotSequence(KnotC1,KnotC1Mults,FlatKnots);
        TColgp_Array1OfPnt2d NewPoles(1,FlatKnots.Length()-(2*Curve1->Degree()+1));
-       Standard_Integer      Status;
+       Standard_Integer      aStatus;
        TColStd_Array1OfReal Curve1Weights(1,Curve1->NbPoles());
        Curve1->Weights(Curve1Weights);
        for (ii=1;ii<=Curve1->NbPoles();ii++)
@@ -1074,9 +1075,9 @@ void  Geom2dConvert::ConcatG1(TColGeom2d_Array1OfBSplineCurve&           ArrayOf
 					Curve1FlatKnots,
 					Curve1Poles,
 					FlatKnots,
-					2*Curve1->Degree(),
+                                        aNewCurveDegree,
 					NewPoles,
-					Status
+					aStatus
 					);
        TColStd_Array1OfReal NewWeights(1,FlatKnots.Length()-(2*Curve1->Degree()+1));
        BSplCLib::FunctionReparameterise(ev,
@@ -1084,9 +1085,9 @@ void  Geom2dConvert::ConcatG1(TColGeom2d_Array1OfBSplineCurve&           ArrayOf
 					Curve1FlatKnots,
 					Curve1Weights,
 					FlatKnots,
-					2*Curve1->Degree(),
+                                        aNewCurveDegree,
 					NewWeights,
-					Status
+					aStatus
 					);
 //      BSplCLib::FunctionReparameterise(reparameterise_evaluator,
 //					Curve1->Degree(),
@@ -1095,7 +1096,7 @@ void  Geom2dConvert::ConcatG1(TColGeom2d_Array1OfBSplineCurve&           ArrayOf
 //					FlatKnots,
 //					2*Curve1->Degree(),
 //					NewPoles,
-//					Status
+//					aStatus
 //					);
 //       TColStd_Array1OfReal NewWeights(1,FlatKnots.Length()-(2*Curve1->Degree()+1));
 //       BSplCLib::FunctionReparameterise(reparameterise_evaluator,
@@ -1105,18 +1106,18 @@ void  Geom2dConvert::ConcatG1(TColGeom2d_Array1OfBSplineCurve&           ArrayOf
 //					FlatKnots,
 //					2*Curve1->Degree(),
 //					NewWeights,
-//					Status
+//					aStatus
 //					);
        for (ii=1;ii<=NewPoles.Length();ii++)
 	 for (jj=1;jj<=2;jj++)
 	   NewPoles(ii).SetCoord(jj,NewPoles(ii).Coord(jj)/NewWeights(ii));
-       Curve1= new Geom2d_BSplineCurve(NewPoles,NewWeights,KnotC1,KnotC1Mults,2*Curve1->Degree());
+       Curve1 = new Geom2d_BSplineCurve(NewPoles, NewWeights, KnotC1, KnotC1Mults, aNewCurveDegree);
      }
      Geom2dConvert_CompCurveToBSplineCurve C(Curve2);
      fusion=C.Add(Curve1,
 		  local_tolerance(j-1));          //fusion de deux courbes adjacentes               
      if (fusion==Standard_False)
-       Standard_ConstructionError::Raise("Geom2dConvert Concatenation Error") ;
+       throw Standard_ConstructionError("Geom2dConvert Concatenation Error") ;
      Curve2=C.BSplineCurve();
    }
    Curve2->SetPeriodic();      //1 seule courbe C1
@@ -1142,7 +1143,7 @@ void  Geom2dConvert::ConcatG1(TColGeom2d_Array1OfBSplineCurve&           ArrayOf
 	 Geom2dConvert_CompCurveToBSplineCurve  C(ArrayOfConcatenated->Value(i));
 	 fusion=C.Add(Curve1,ArrayOfToler(j-1));          //fusion de deux courbes adjacentes               
 	 if (fusion==Standard_False)
-	   Standard_ConstructionError::Raise("Geom2dConvert Concatenation Error") ;
+	   throw Standard_ConstructionError("Geom2dConvert Concatenation Error") ;
 	 ArrayOfConcatenated->SetValue(i,C.BSplineCurve());
        }
      }
@@ -1212,7 +1213,7 @@ void  Geom2dConvert::ConcatC1(TColGeom2d_Array1OfBSplineCurve&           ArrayOf
 		    Standard_True,
 		    ArrayOfToler(i-1),
 		    AngularTolerance)<GeomAbs_C0)
-       Standard_ConstructionError::Raise("Geom2dConvert curves not C0") ;                //renvoi d'une erreur
+       throw Standard_ConstructionError("Geom2dConvert curves not C0") ;                //renvoi d'une erreur
      else{
        if (Continuity(ArrayOfCurves(i-1),
 		      ArrayOfCurves(i),
@@ -1276,6 +1277,8 @@ void  Geom2dConvert::ConcatC1(TColGeom2d_Array1OfBSplineCurve&           ArrayOf
      else
        Curve1=ArrayOfCurves(j);
      
+     const Standard_Integer aNewCurveDegree = Min(2 * Curve1->Degree(), Geom2d_BSplineCurve::MaxDegree());
+
      if (j==0)                                      //initialisation en debut de groupe
        Curve2=Curve1;
      else{
@@ -1315,8 +1318,8 @@ void  Geom2dConvert::ConcatC1(TColGeom2d_Array1OfBSplineCurve&           ArrayOf
 	 TColStd_Array1OfReal FlatKnots(1,Curve1FlatKnots.Length()+(Curve1->Degree()*Curve1->NbKnots()));
 	 
 	 BSplCLib::KnotSequence(KnotC1,KnotC1Mults,FlatKnots);
-	 TColgp_Array1OfPnt2d  NewPoles(1,FlatKnots.Length()-(2*Curve1->Degree()+1));
-	 Standard_Integer      Status;
+         TColgp_Array1OfPnt2d  NewPoles(1, FlatKnots.Length() - (aNewCurveDegree + 1));
+	 Standard_Integer      aStatus;
 	 TColStd_Array1OfReal Curve1Weights(1,Curve1->NbPoles());
 	 Curve1->Weights(Curve1Weights);
 	 for (ii=1;ii<=Curve1->NbPoles();ii++)
@@ -1330,32 +1333,32 @@ void  Geom2dConvert::ConcatC1(TColGeom2d_Array1OfBSplineCurve&           ArrayOf
 					  Curve1FlatKnots,
 					  Curve1Poles,
 					  FlatKnots,
-					  2*Curve1->Degree(),
+                                          aNewCurveDegree,
 					  NewPoles,
-					  Status
+					  aStatus
 					  );
-	 TColStd_Array1OfReal NewWeights(1,FlatKnots.Length()-(2*Curve1->Degree()+1));
+         TColStd_Array1OfReal NewWeights(1, FlatKnots.Length() - (aNewCurveDegree + 1));
 //	 BSplCLib::FunctionReparameterise(reparameterise_evaluator,
 	 BSplCLib::FunctionReparameterise(ev,
 					  Curve1->Degree(),
 					  Curve1FlatKnots,
 					  Curve1Weights,
 					  FlatKnots,
-					  2*Curve1->Degree(),
+                                          aNewCurveDegree,
 					  NewWeights,
-					  Status
+					  aStatus
 					  );
 	 for (ii=1;ii<=NewPoles.Length();ii++) {
 	   for (jj=1;jj<=2;jj++)
 	     NewPoles(ii).SetCoord(jj,NewPoles(ii).Coord(jj)/NewWeights(ii));
 	 }
-	 Curve1= new Geom2d_BSplineCurve(NewPoles,NewWeights,KnotC1,KnotC1Mults,2*Curve1->Degree());
+         Curve1 = new Geom2d_BSplineCurve(NewPoles, NewWeights, KnotC1, KnotC1Mults, aNewCurveDegree);
        }
        Geom2dConvert_CompCurveToBSplineCurve C(Curve2);
        fusion=C.Add(Curve1,
 		    local_tolerance(j-1));          //fusion de deux courbes adjacentes               
        if (fusion==Standard_False)
-	 Standard_ConstructionError::Raise("Geom2dConvert Concatenation Error") ;
+	 throw Standard_ConstructionError("Geom2dConvert Concatenation Error") ;
        Curve2=C.BSplineCurve();
      }
    }
@@ -1398,7 +1401,7 @@ void  Geom2dConvert::ConcatC1(TColGeom2d_Array1OfBSplineCurve&           ArrayOf
 	 Geom2dConvert_CompCurveToBSplineCurve C (ArrayOfConcatenated->Value(i));
 	 fusion=C.Add(Curve1,ArrayOfToler(j-1));          //fusion de deux courbes adjacentes               
 	 if (fusion==Standard_False)
-	   Standard_ConstructionError::Raise("Geom2dConvert Concatenation Error") ;
+	   throw Standard_ConstructionError("Geom2dConvert Concatenation Error") ;
 	 ArrayOfConcatenated->SetValue(i,C.BSplineCurve());
        }
      }
@@ -1420,7 +1423,7 @@ void Geom2dConvert::C0BSplineToC1BSplineCurve(Handle(Geom2d_BSplineCurve)& BS,
  Standard_Integer                 i,j,nbcurveC1=1;
  Standard_Real                    U1,U2;
  Standard_Boolean                 closed_flag = Standard_False ;
- gp_Pnt2d                         point;
+ gp_Pnt2d                         point1, point2;
  gp_Vec2d                         V1,V2;
  Standard_Boolean                 fusion;
 
@@ -1453,15 +1456,20 @@ void Geom2dConvert::C0BSplineToC1BSplineCurve(Handle(Geom2d_BSplineCurve)& BS,
      BSbis->Segment(U1,U2);
      ArrayOfCurves(i)=BSbis;
    }
+
+   const Standard_Real anAngularToler = 1.0e-7;
    Handle(TColStd_HArray1OfInteger) ArrayOfIndices;
    Handle(TColGeom2d_HArray1OfBSplineCurve) ArrayOfConcatenated;
     
-   BS->D1(BS->FirstParameter(),point,V1);  //a verifier
-   BS->D1(BS->LastParameter(),point,V2);
+   BS->D1(BS->FirstParameter(),point1,V1);  //a verifier
+   BS->D1(BS->LastParameter(),point2,V2);
    
-   if ((BS->IsClosed())&&(V1.IsParallel(V2,Precision::Confusion())))
-     closed_flag = Standard_True ;
-    
+   if ((point1.SquareDistance(point2) < gp::Resolution()) &&
+       (V1.IsParallel(V2, anAngularToler)))
+   {
+     closed_flag = Standard_True;
+   }
+
    Geom2dConvert::ConcatC1(ArrayOfCurves,
 			   ArrayOfToler,
 			   ArrayOfIndices,
@@ -1472,9 +1480,9 @@ void Geom2dConvert::C0BSplineToC1BSplineCurve(Handle(Geom2d_BSplineCurve)& BS,
    Geom2dConvert_CompCurveToBSplineCurve C(ArrayOfConcatenated->Value(0));
    if (ArrayOfConcatenated->Length()>=2){
      for (i=1;i<ArrayOfConcatenated->Length();i++){
-       fusion=C.Add(ArrayOfConcatenated->Value(i),tolerance);
+       fusion=C.Add(ArrayOfConcatenated->Value(i),tolerance, Standard_True);
        if (fusion==Standard_False)
-	 Standard_ConstructionError::Raise("Geom2dConvert Concatenation Error") ;
+	 throw Standard_ConstructionError("Geom2dConvert Concatenation Error") ;
      }
    }
    BS=C.BSplineCurve();
@@ -1510,7 +1518,7 @@ void Geom2dConvert::C0BSplineToArrayOfC1BSplineCurve(const Handle(Geom2d_BSpline
   Standard_Integer                 i,j,nbcurveC1=1;
   Standard_Real                    U1,U2;
   Standard_Boolean                 closed_flag = Standard_False ;
-  gp_Pnt2d                         point;
+  gp_Pnt2d                         point1, point2;
   gp_Vec2d                         V1,V2;
 //  Standard_Boolean                 fusion;
   
@@ -1544,11 +1552,14 @@ void Geom2dConvert::C0BSplineToArrayOfC1BSplineCurve(const Handle(Geom2d_BSpline
     
     Handle(TColStd_HArray1OfInteger) ArrayOfIndices;
     
-    BS->D1(BS->FirstParameter(),point,V1);  
-    BS->D1(BS->LastParameter(),point,V2);
+    BS->D1(BS->FirstParameter(),point1,V1);  
+    BS->D1(BS->LastParameter(),point2,V2);
     
-    if ((BS->IsClosed())&&(V1.IsParallel(V2,AngularTolerance)))
-      closed_flag = Standard_True ;
+    if (((point1.SquareDistance(point2) < gp::Resolution())) &&
+        (V1.IsParallel(V2, AngularTolerance)))
+    {
+      closed_flag = Standard_True;
+    }
     
     Geom2dConvert::ConcatC1(ArrayOfCurves,
 			    ArrayOfToler,

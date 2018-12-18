@@ -22,7 +22,7 @@
 
 #include <Standard_Time.hxx>
 #include <Units_QuantitiesSequence.hxx>
-#include <MMgt_TShared.hxx>
+#include <Standard_Transient.hxx>
 #include <Standard_CString.hxx>
 #include <Standard_Boolean.hxx>
 #include <Standard_Integer.hxx>
@@ -32,11 +32,11 @@ class Units_Dimensions;
 
 
 class Units_UnitsDictionary;
-DEFINE_STANDARD_HANDLE(Units_UnitsDictionary, MMgt_TShared)
+DEFINE_STANDARD_HANDLE(Units_UnitsDictionary, Standard_Transient)
 
 //! This class creates  a dictionary of all  the units
 //! you want to know.
-class Units_UnitsDictionary : public MMgt_TShared
+class Units_UnitsDictionary : public Standard_Transient
 {
 
 public:
@@ -48,17 +48,12 @@ public:
   //! Returns a  UnitsDictionary object  which  contains the
   //! sequence  of all   the  units  you want to   consider,
   //! physical quantity by physical quantity.
-  Standard_EXPORT void Creates (const Standard_CString afilename);
+  Standard_EXPORT void Creates ();
   
   //! Returns   the  head   of   the  sequence  of  physical
   //! quantities.
-    Handle(Units_QuantitiesSequence) Sequence() const;
-  
-  //! Returns true if there has been no  modification of the
-  //! file Units.dat  since the   creation of the dictionary
-  //! object, false otherwise.
-  Standard_EXPORT Standard_Boolean UpToDate() const;
-  
+  Handle(Units_QuantitiesSequence) Sequence() const;
+
   //! Returns for <aquantity> the active unit.
   Standard_EXPORT TCollection_AsciiString ActiveUnit (const Standard_CString aquantity) const;
   
@@ -75,7 +70,7 @@ public:
 
 
 
-  DEFINE_STANDARD_RTTIEXT(Units_UnitsDictionary,MMgt_TShared)
+  DEFINE_STANDARD_RTTIEXT(Units_UnitsDictionary,Standard_Transient)
 
 protected:
 
@@ -85,8 +80,6 @@ protected:
 private:
 
 
-  Handle(TCollection_HAsciiString) thefilename;
-  Standard_Time thetime;
   Handle(Units_QuantitiesSequence) thequantitiessequence;
 
 

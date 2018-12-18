@@ -68,14 +68,14 @@ namespace Xbim
 		{
 		}
 
-		XbimShell::XbimShell(IIfcOpenShell^ openShell)
+		XbimShell::XbimShell(IIfcOpenShell^ openShell, ILogger^ logger)
 		{
-			Init(openShell);
+			Init(openShell, logger);
 		}
 
-		XbimShell::XbimShell(IIfcConnectedFaceSet^ fset)
+		XbimShell::XbimShell(IIfcConnectedFaceSet^ fset, ILogger^ logger)
 		{
-			Init(fset);
+			Init(fset, logger);
 		}
 
 		XbimShell::XbimShell(const TopoDS_Shell& shell)
@@ -89,34 +89,38 @@ namespace Xbim
 			Tag = tag;
 		}
 
-		XbimShell::XbimShell(IIfcSurfaceOfLinearExtrusion^ linExt)
+		XbimShell::XbimShell(IIfcSurfaceOfLinearExtrusion^ linExt, ILogger^ logger)
 		{
-			Init(linExt);
+			Init(linExt,logger);
 		}
 
 
 #pragma endregion
 
 		//initialisers
-		void XbimShell::Init(IIfcOpenShell^ openShell)
+		void XbimShell::Init(IIfcOpenShell^ openShell, ILogger^ logger)
 		{
-			XbimCompound^ shapes = gcnew XbimCompound(openShell);
+			XbimCompound^ shapes = gcnew XbimCompound(openShell, logger);
 			shapes->Sew();
 			pShell = new TopoDS_Shell();
 			*pShell = (XbimShell^)shapes->MakeShell();
+			ShapeFix_ShapeTolerance tolFixer;
+			tolFixer.LimitTolerance(*pShell, openShell->Model->ModelFactors->Precision);
 		}
 
-		void XbimShell::Init(IIfcConnectedFaceSet^ connectedFaceSet)
+		void XbimShell::Init(IIfcConnectedFaceSet^ connectedFaceSet, ILogger^ logger)
 		{
-			XbimCompound^ shapes = gcnew XbimCompound(connectedFaceSet);
+			XbimCompound^ shapes = gcnew XbimCompound(connectedFaceSet, logger);
 			shapes->Sew();
 			pShell = new TopoDS_Shell();
 			*pShell = (XbimShell^)shapes->MakeShell();
+			ShapeFix_ShapeTolerance tolFixer;
+			tolFixer.LimitTolerance(*pShell, connectedFaceSet->Model->ModelFactors->Precision);
 		}
 
-		void XbimShell::Init(IIfcSurfaceOfLinearExtrusion ^ linExt)
+		void XbimShell::Init(IIfcSurfaceOfLinearExtrusion ^ linExt, ILogger^ logger)
 		{
-			XbimWire^ prof = gcnew XbimWire(linExt->SweptCurve);
+			XbimWire^ prof = gcnew XbimWire(linExt->SweptCurve, logger);
 			if (prof->IsValid && linExt->Depth > 0) //we have a valid wire and extrusion
 			{
 				IIfcDirection^ dir = linExt->ExtrudedDirection;
@@ -130,13 +134,15 @@ namespace Xbim
 					*pShell = TopoDS::Shell(shellMaker.Shape());
 					if (linExt->Position!=nullptr)
 						pShell->Move(XbimConvert::ToLocation(linExt->Position));
+					ShapeFix_ShapeTolerance tolFixer;
+					tolFixer.LimitTolerance(*pShell, linExt->Model->ModelFactors->Precision);
 				}
 				else
-					XbimGeometryCreator::LogWarning(linExt, "Invalid Surface Extrusion, could not create shell");
+					XbimGeometryCreator::LogWarning(logger, linExt, "Invalid Surface Extrusion, could not create shell");
 			}
 			else if (linExt->Depth <= 0)
 			{
-				XbimGeometryCreator::LogWarning(linExt, "Invalid shell surface, Extrusion Depth must be >0");
+				XbimGeometryCreator::LogWarning(logger,linExt, "Invalid shell surface, Extrusion Depth must be >0");
 			}
 			
 		}
@@ -248,7 +254,15 @@ namespace Xbim
 			return gProps.Mass();	
 		}
 
-		
+		bool XbimShell::IsEmpty::get()
+		{
+			if (!IsValid) return true;
+			TopTools_IndexedMapOfShape faceMap;
+			TopExp::MapShapes(TopoDS::Shell(*pShell), TopAbs_FACE, faceMap);
+			if (faceMap.Extent() > 0) return false; //if we find a face in a shell we have something to work with			
+			return true;
+		}
+
 		//returns true if the shell is a closed manifold solid
 		bool XbimShell::IsClosed::get()
 		{
@@ -265,6 +279,7 @@ namespace Xbim
 			if (!IsValid) return nullptr;
 			gp_Trsf trans = XbimConvert::ToTransform(matrix3D);
 			BRepBuilderAPI_Transform gTran(this, trans, Standard_True);
+			GC::KeepAlive(this);
 			return gcnew XbimSolid(TopoDS::Solid(gTran.Shape()));
 		}
 
@@ -273,48 +288,49 @@ namespace Xbim
 			if (!IsValid) return nullptr;
 			gp_Trsf trans = XbimConvert::ToTransform(matrix3D);
 			BRepBuilderAPI_Transform gTran(this, trans, Standard_False);
+			GC::KeepAlive(this);
 			return gcnew XbimSolid(TopoDS::Solid(gTran.Shape()));
 		}
 
-		IXbimGeometryObjectSet^ XbimShell::Cut(IXbimSolidSet^ solids, double tolerance)
+		IXbimGeometryObjectSet^ XbimShell::Cut(IXbimSolidSet^ solids, double tolerance, ILogger^ logger)
 		{
 
-			return XbimGeometryObjectSet::PerformBoolean(BOPAlgo_CUT, this, solids, tolerance);
+			return XbimGeometryObjectSet::PerformBoolean(BOPAlgo_CUT, this, solids, tolerance, logger);
 		}
 
 
-		IXbimGeometryObjectSet^ XbimShell::Cut(IXbimSolid^ solid, double tolerance)
-		{
-			
-			return XbimGeometryObjectSet::PerformBoolean(BOPAlgo_CUT,this, gcnew XbimSolidSet(solid), tolerance);
-		}
-
-		IXbimGeometryObjectSet^ XbimShell::Union(IXbimSolidSet^ solids, double tolerance)
-		{
-
-			return XbimGeometryObjectSet::PerformBoolean(BOPAlgo_FUSE,this, solids, tolerance);
-		}
-
-		IXbimGeometryObjectSet^ XbimShell::Union(IXbimSolid^ solid, double tolerance)
+		IXbimGeometryObjectSet^ XbimShell::Cut(IXbimSolid^ solid, double tolerance, ILogger^ logger)
 		{
 			
-			return XbimGeometryObjectSet::PerformBoolean(BOPAlgo_FUSE, this, gcnew XbimSolidSet(solid), tolerance);
+			return XbimGeometryObjectSet::PerformBoolean(BOPAlgo_CUT,this, gcnew XbimSolidSet(solid), tolerance, logger);
 		}
 
-		IXbimGeometryObjectSet^ XbimShell::Intersection(IXbimSolidSet^ solids, double tolerance)
+		IXbimGeometryObjectSet^ XbimShell::Union(IXbimSolidSet^ solids, double tolerance, ILogger^ logger)
 		{
 
-			return XbimGeometryObjectSet::PerformBoolean(BOPAlgo_COMMON,this, solids, tolerance);
+			return XbimGeometryObjectSet::PerformBoolean(BOPAlgo_FUSE,this, solids, tolerance, logger);
+		}
+
+		IXbimGeometryObjectSet^ XbimShell::Union(IXbimSolid^ solid, double tolerance, ILogger^ logger)
+		{
+			
+			return XbimGeometryObjectSet::PerformBoolean(BOPAlgo_FUSE, this, gcnew XbimSolidSet(solid), tolerance, logger);
+		}
+
+		IXbimGeometryObjectSet^ XbimShell::Intersection(IXbimSolidSet^ solids, double tolerance, ILogger^ logger)
+		{
+
+			return XbimGeometryObjectSet::PerformBoolean(BOPAlgo_COMMON,this, solids, tolerance, logger);
 		}
 
 
-		IXbimGeometryObjectSet^ XbimShell::Intersection(IXbimSolid^ solid, double tolerance)
+		IXbimGeometryObjectSet^ XbimShell::Intersection(IXbimSolid^ solid, double tolerance, ILogger^ logger)
 		{
 		
-			return XbimGeometryObjectSet::PerformBoolean(BOPAlgo_COMMON, this, gcnew XbimSolidSet(solid), tolerance);
+			return XbimGeometryObjectSet::PerformBoolean(BOPAlgo_COMMON, this, gcnew XbimSolidSet(solid), tolerance, logger);
 		}
 
-		IXbimFaceSet^ XbimShell::Section(IXbimFace^ toSection, double tolerance)
+		IXbimFaceSet^ XbimShell::Section(IXbimFace^ toSection, double tolerance, ILogger^ logger)
 		{
 			if (!IsValid || !toSection->IsValid) return XbimFaceSet::Empty;
 			XbimFace^ faceSection = dynamic_cast<XbimFace^>(toSection);
@@ -359,7 +375,7 @@ namespace Xbim
 					return gcnew XbimFaceSet(result);
 				}
 			}
-			XbimGeometryCreator::LogWarning(this, "Boolean Section operation has failed to create a section");
+			XbimGeometryCreator::LogWarning(logger, this, "Boolean Section operation has failed to create a section");
 			return XbimFaceSet::Empty;
 		}
 
@@ -400,12 +416,14 @@ namespace Xbim
 			{
 				gp_GTrsf trans = XbimConvert::ToTransform(nonUniform);
 				BRepBuilderAPI_GTransform tr(this, trans, Standard_True); //make a copy of underlying shape
+				GC::KeepAlive(this);
 				return gcnew XbimShell(TopoDS::Shell(tr.Shape()), Tag);
 			}
 			else
 			{
 				gp_Trsf trans = XbimConvert::ToTransform(transformation);
 				BRepBuilderAPI_Transform tr(this, trans, Standard_False); //do not make a copy of underlying shape
+				GC::KeepAlive(this);
 				return gcnew XbimShell(TopoDS::Shell(tr.Shape()), Tag);
 			}
 		}
@@ -423,11 +441,11 @@ namespace Xbim
 			return copy;
 		}
 
-		XbimGeometryObject ^ XbimShell::Moved(IIfcObjectPlacement ^ objectPlacement)
+		XbimGeometryObject ^ XbimShell::Moved(IIfcObjectPlacement ^ objectPlacement, ILogger^ logger)
 		{
 			if (!IsValid) return this;
 			XbimShell^ copy = gcnew XbimShell(this, Tag); //take a copy of the shape
-			TopLoc_Location loc = XbimConvert::ToLocation(objectPlacement);
+			TopLoc_Location loc = XbimConvert::ToLocation(objectPlacement,logger);
 			copy->Move(loc);
 			return copy;
 		}

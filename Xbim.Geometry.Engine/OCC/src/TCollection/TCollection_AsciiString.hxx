@@ -80,6 +80,17 @@ public:
   
   //! Initializes a AsciiString with another AsciiString.
   Standard_EXPORT TCollection_AsciiString(const TCollection_AsciiString& astring);
+
+#ifndef OCCT_NO_RVALUE_REFERENCE
+  //! Move constructor
+  TCollection_AsciiString (TCollection_AsciiString&& theOther)
+  : mystring (theOther.mystring),
+    mylength (theOther.mylength)
+  {
+    theOther.mystring = NULL;
+    theOther.mylength = 0;
+  }
+#endif
   
   //! Initializes a AsciiString with copy of another AsciiString
   //! concatenated with the message character.
@@ -99,7 +110,7 @@ public:
   //! Otherwise, creates UTF-8 unicode string.
   Standard_EXPORT TCollection_AsciiString(const TCollection_ExtendedString& astring, const Standard_Character replaceNonAscii = 0);
 
-#if !defined(_WIN32) || defined(_NATIVE_WCHAR_T_DEFINED)
+#if !defined(_MSC_VER) || defined(_NATIVE_WCHAR_T_DEFINED)
   //! Initialize UTF-8 Unicode string from wide-char string considering it as Unicode string
   //! (the size of wide char is a platform-dependent - e.g. on Windows wchar_t is UTF-16).
   //!
@@ -270,7 +281,15 @@ void operator = (const TCollection_AsciiString& fromwhere)
 {
   Copy(fromwhere);
 }
-  
+
+  //! Exchange the data of two strings (without reallocating memory).
+  Standard_EXPORT void Swap (TCollection_AsciiString& theOther);
+
+#ifndef OCCT_NO_RVALUE_REFERENCE
+  //! Move assignment operator
+  TCollection_AsciiString& operator= (TCollection_AsciiString&& theOther) { Swap (theOther); return *this; }
+#endif
+
   //! Frees memory allocated by AsciiString.
   Standard_EXPORT ~TCollection_AsciiString();
   

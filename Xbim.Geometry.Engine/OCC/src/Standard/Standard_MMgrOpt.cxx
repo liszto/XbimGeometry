@@ -249,7 +249,7 @@ void Standard_MMgrOpt::Initialize()
       perror("ERR_MEMRY_FAIL");
 #endif
     
-#if defined(IRIX) || defined(__sgi) || defined(SOLARIS) || defined(__sun) || defined(__linux__) || defined(linux) || defined(__FreeBSD__) || defined(__ANDROID__)
+#if defined(IRIX) || defined(__sgi) || defined(SOLARIS) || defined(__sun) || defined(__linux__) || defined(__FreeBSD__) || defined(__ANDROID__)
     if ((myMMap = open ("/dev/zero", O_RDWR)) < 0) {
       if ((myMMap = open ("/dev/null", O_RDWR)) < 0){
         myMMap = 0;
@@ -401,7 +401,7 @@ Standard_Address Standard_MMgrOpt::Allocate(const Standard_Size aSize)
           aBlock = (Standard_Size*)calloc(RoundSizeN+BLOCK_SHIFT, sizeof(Standard_Size));
         // if still not succeeded, raise exception
         if ( ! aBlock )
-          Standard_OutOfMemory::Raise ("Standard_MMgrOpt::Allocate(): malloc failed");
+          throw Standard_OutOfMemory("Standard_MMgrOpt::Allocate(): malloc failed");
       }
 
       // initialize new block header by its size
@@ -726,7 +726,7 @@ retry:
       if ( Purge(Standard_False) )
         goto retry;
       // if nothing helps, raise exception
-      Standard_OutOfMemory::Raise (strerror(errcode));
+      throw Standard_OutOfMemory(strerror(errcode));
     }
 
     // save actually allocated size into argument
@@ -766,7 +766,7 @@ retry:
 
       char messageA[BUFSIZE];
       WideCharToMultiByte(CP_UTF8, 0, message, -1, messageA, sizeof(messageA), NULL, NULL);
-      Standard_OutOfMemory::Raise(messageA);
+      throw Standard_OutOfMemory(messageA);
     }
 
     // record map handle in the beginning
@@ -789,7 +789,7 @@ retry:
       if ( Purge(Standard_False) )
         goto retry;
       // if nothing helps, raise exception
-      Standard_OutOfMemory::Raise ("Standard_MMgrOpt::Allocate(): malloc failed");
+      throw Standard_OutOfMemory("Standard_MMgrOpt::Allocate(): malloc failed");
     }
   }
   // clear whole block if clearing option is set

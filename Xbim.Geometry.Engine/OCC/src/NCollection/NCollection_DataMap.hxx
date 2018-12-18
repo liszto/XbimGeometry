@@ -47,8 +47,14 @@ template < class TheKeyType,
            class Hasher = NCollection_DefaultHasher<TheKeyType> >
 class NCollection_DataMap : public NCollection_BaseMap
 {
+public:
+  //! STL-compliant typedef for key type
+  typedef TheKeyType key_type;
+  //! STL-compliant typedef for value type
+  typedef TheItemType value_type;
+
+public:
   // **************** Adaptation of the TListNode to the DATAmap
- public:
   class DataMapNode : public NCollection_TListNode<TheItemType>
   {
   public:
@@ -134,10 +140,13 @@ class NCollection_DataMap : public NCollection_BaseMap
  public:
   // ---------- PUBLIC METHODS ------------
 
+  //! Empty Constructor.
+  NCollection_DataMap() : NCollection_BaseMap (1, Standard_True, Handle(NCollection_BaseAllocator)()) {}
+
   //! Constructor
-  NCollection_DataMap (const Standard_Integer NbBuckets=1,
-                     const Handle(NCollection_BaseAllocator)& theAllocator = 0L)
-    : NCollection_BaseMap (NbBuckets, Standard_True, theAllocator) {}
+  explicit NCollection_DataMap (const Standard_Integer theNbBuckets,
+                                const Handle(NCollection_BaseAllocator)& theAllocator = 0L)
+  : NCollection_BaseMap (theNbBuckets, Standard_True, theAllocator) {}
 
   //! Copy constructor
   NCollection_DataMap (const NCollection_DataMap& theOther)
@@ -159,10 +168,14 @@ class NCollection_DataMap : public NCollection_BaseMap
       return *this;
 
     Clear();
-    ReSize (theOther.Extent()-1);
-    Iterator anIter(theOther);
-    for (; anIter.More(); anIter.Next())
-      Bind (anIter.Key(), anIter.Value());
+    Standard_Integer anExt = theOther.Extent();
+    if (anExt)
+    {
+      ReSize (anExt-1);
+      Iterator anIter(theOther);
+      for (; anIter.More(); anIter.Next())
+        Bind (anIter.Key(), anIter.Value());
+    }
     return *this;
   }
 
@@ -205,9 +218,10 @@ class NCollection_DataMap : public NCollection_BaseMap
     }
   }
 
-  //! Bind binds Item to Key in map. Returns Standard_True if Key was not
-  //! exist in the map. If the Key was already bound, the Item will be rebinded
-  //! and Standard_False will be returned.
+  //! Bind binds Item to Key in map.
+  //! @param theKey  key to add/update
+  //! @param theItem new item; overrides value previously bound to the key, if any
+  //! @return Standard_True if Key was not bound already
   Standard_Boolean Bind (const TheKeyType& theKey, const TheItemType& theItem)
   {
     if (Resizable()) 
@@ -252,24 +266,24 @@ class NCollection_DataMap : public NCollection_BaseMap
   }
 
   //! IsBound
-  Standard_Boolean IsBound(const TheKeyType& K) const
+  Standard_Boolean IsBound(const TheKeyType& theKey) const
   {
     DataMapNode* p;
-    return lookup(K, p);
+    return lookup(theKey, p);
   }
 
   //! UnBind removes Item Key pair from map
-  Standard_Boolean UnBind(const TheKeyType& K)
+  Standard_Boolean UnBind(const TheKeyType& theKey)
   {
     if (IsEmpty()) 
       return Standard_False;
     DataMapNode** data = (DataMapNode**) myData1;
-    Standard_Integer k = Hasher::HashCode(K,NbBuckets());
+    Standard_Integer k = Hasher::HashCode(theKey,NbBuckets());
     DataMapNode* p = data[k];
     DataMapNode* q = NULL;
     while (p) 
     {
-      if (Hasher::IsEqual(p->Key(),K)) 
+      if (Hasher::IsEqual(p->Key(), theKey))
       {
         Decrement();
         if (q) 
@@ -301,7 +315,7 @@ class NCollection_DataMap : public NCollection_BaseMap
   {
     DataMapNode* p = 0;
     if (!lookup(theKey, p))
-      Standard_NoSuchObject::Raise("NCollection_DataMap::Find");
+      throw Standard_NoSuchObject("NCollection_DataMap::Find");
     return p->Value();
   }
 
@@ -337,7 +351,7 @@ class NCollection_DataMap : public NCollection_BaseMap
   {
     DataMapNode* p = 0;
     if (!lookup(theKey, p))
-      Standard_NoSuchObject::Raise("NCollection_DataMap::Find");
+      throw Standard_NoSuchObject("NCollection_DataMap::Find");
     return p->ChangeValue();
   }
 

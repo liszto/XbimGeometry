@@ -49,6 +49,22 @@ static Standard_Real PIPI = M_PI + M_PI;
 //=======================================================================
 //function : InPeriod
 //purpose  : Value theULast is never returned.
+//          Example of some case (checked on WIN64 platform)
+//          with some surface having period 2*PI = 6.2831853071795862.
+//            Let theUFirst be equal to 6.1645624650899675. Then,
+//          theULast must be equal to
+//              6.1645624650899675+6.2831853071795862=12.4477477722695537.
+//
+//          However, real result is 12.447747772269555.
+//          Therefore, new period value to adjust will be equal to
+//              12.447747772269555-6.1645624650899675=6.2831853071795871.
+//
+//          As we can see, (6.2831853071795871 != 6.2831853071795862).
+//
+//          According to above said, this method should be used carefully.
+//          In order to increase reliability of this method, input arguments
+//          needs to be replaced with following: 
+//            (theU, theUFirst, thePeriod). theULast parameter is excess.
 //=======================================================================
 Standard_Real  ElCLib::InPeriod(const Standard_Real theU, 
                                 const Standard_Real theUFirst, 
@@ -154,8 +170,8 @@ gp_Pnt ElCLib::HyperbolaValue (const Standard_Real U,
   const gp_XYZ& XDir = Pos.XDirection().XYZ();
   const gp_XYZ& YDir = Pos.YDirection().XYZ();
   const gp_XYZ& PLoc = Pos.Location  ().XYZ();
-  Standard_Real A1 = MajorRadius * cosh(U);
-  Standard_Real A2 = MinorRadius * sinh(U);
+  Standard_Real A1 = MajorRadius * Cosh(U);
+  Standard_Real A2 = MinorRadius * Sinh(U);
   return gp_Pnt(A1 * XDir.X() + A2 * YDir.X() + PLoc.X(),
 		A1 * XDir.Y() + A2 * YDir.Y() + PLoc.Y(),
 		A1 * XDir.Z() + A2 * YDir.Z() + PLoc.Z());
@@ -382,8 +398,8 @@ void ElCLib::HyperbolaD2 (const Standard_Real U,
 			  gp_Vec& V1,
 			  gp_Vec& V2)
 {
-  Standard_Real Xc = cosh(U);
-  Standard_Real Yc = sinh(U);
+  Standard_Real Xc = Cosh(U);
+  Standard_Real Yc = Sinh(U);
   gp_XYZ Coord0; 
   gp_XYZ Coord1 (Pos.XDirection().XYZ());
   gp_XYZ Coord2 (Pos.YDirection().XYZ());
@@ -514,8 +530,8 @@ void ElCLib::HyperbolaD3 (const Standard_Real U,
 			  gp_Vec& V2,
 			  gp_Vec& V3)
 {
-  Standard_Real Xc = cosh(U);
-  Standard_Real Yc = sinh(U);
+  Standard_Real Xc = Cosh(U);
+  Standard_Real Yc = Sinh(U);
   gp_XYZ Coord0;
   gp_XYZ Coord1 (Pos.XDirection().XYZ());
   gp_XYZ Coord2 (Pos.YDirection().XYZ());
@@ -594,8 +610,8 @@ gp_Pnt2d ElCLib::HyperbolaValue (const Standard_Real U,
   const gp_XY& XDir = Pos.XDirection().XY();
   const gp_XY& YDir = Pos.YDirection().XY();
   const gp_XY& PLoc = Pos.Location  ().XY();
-  Standard_Real A1 = MajorRadius * cosh(U);
-  Standard_Real A2 = MinorRadius * sinh(U);
+  Standard_Real A1 = MajorRadius * Cosh(U);
+  Standard_Real A2 = MinorRadius * Sinh(U);
   return gp_Pnt2d(A1 * XDir.X() + A2 * YDir.X() + PLoc.X(),
 		  A1 * XDir.Y() + A2 * YDir.Y() + PLoc.Y());
 }
@@ -706,8 +722,8 @@ void ElCLib::HyperbolaD1 (const Standard_Real U,
   gp_XY Vxy;
   gp_XY Xdir ((Pos.XDirection()).XY());
   gp_XY Ydir ((Pos.YDirection()).XY());
-  Standard_Real Xc = cosh(U);
-  Standard_Real Yc = sinh(U);
+  Standard_Real Xc = Cosh(U);
+  Standard_Real Yc = Sinh(U);
   //Point courant :
   Vxy.SetLinearForm (Xc*MajorRadius, Xdir, 
 		     Yc*MinorRadius, Ydir,
@@ -825,8 +841,8 @@ void ElCLib::HyperbolaD2 (const Standard_Real U,
   gp_XY Vxy;
   gp_XY Xdir (Pos.XDirection().XY()); 
   gp_XY Ydir (Pos.YDirection().XY()); 
-  Standard_Real Xc = cosh(U);
-  Standard_Real Yc = sinh(U);
+  Standard_Real Xc = Cosh(U);
+  Standard_Real Yc = Sinh(U);
 
   //V2 :
   Vxy.SetLinearForm (Xc*MajorRadius, Xdir, Yc*MinorRadius, Ydir);
@@ -964,8 +980,8 @@ void ElCLib::HyperbolaD3 (const Standard_Real U,
   gp_XY Vxy;
   gp_XY Xdir (Pos.XDirection().XY());
   gp_XY Ydir (Pos.YDirection().XY());
-  Standard_Real Xc = cosh(U);
-  Standard_Real Yc = sinh(U);
+  Standard_Real Xc = Cosh(U);
+  Standard_Real Yc = Sinh(U);
 
   //V2 :
   Vxy.SetLinearForm (Xc*MajorRadius, Xdir, Yc*MinorRadius, Ydir);
@@ -1082,12 +1098,12 @@ gp_Vec ElCLib::HyperbolaDN (const Standard_Real U,
 {
   Standard_Real Xc=0, Yc=0;
   if (IsOdd (N)) {       
-    Xc = MajorRadius * sinh(U);
-    Yc = MinorRadius * cosh(U);
+    Xc = MajorRadius * Sinh(U);
+    Yc = MinorRadius * Cosh(U);
   }
   else if (IsEven (N)) {
-    Xc = MajorRadius * cosh(U);
-    Yc = MinorRadius * sinh(U);
+    Xc = MajorRadius * Cosh(U);
+    Yc = MinorRadius * Sinh(U);
   }
   gp_XYZ Coord1 (Pos.XDirection().XYZ());
   Coord1.SetLinearForm (Xc, Coord1, Yc, Pos.YDirection().XYZ());
@@ -1230,12 +1246,12 @@ gp_Vec2d ElCLib::HyperbolaDN (const Standard_Real U,
 {
   Standard_Real Xc=0, Yc=0;
   if (IsOdd (N)) {       
-    Xc = MajorRadius * sinh(U);
-    Yc = MinorRadius * cosh(U);
+    Xc = MajorRadius * Sinh(U);
+    Yc = MinorRadius * Cosh(U);
   }
   else if (IsEven (N)) {
-    Xc = MajorRadius * cosh(U);
-    Yc = MinorRadius * sinh(U);
+    Xc = MajorRadius * Cosh(U);
+    Yc = MinorRadius * Sinh(U);
   }
   gp_XY Xdir (Pos.XDirection().XY());
   gp_XY Ydir (Pos.YDirection().XY());
@@ -1292,12 +1308,24 @@ Standard_Real ElCLib::LineParameter (const gp_Ax1& L, const gp_Pnt& P)
 //function : CircleParameter
 //purpose  : 
 //=======================================================================
-
-Standard_Real ElCLib::CircleParameter (const gp_Ax2& Pos,
-				       const gp_Pnt& P)
+Standard_Real ElCLib::CircleParameter(const gp_Ax2& Pos,
+                                      const gp_Pnt& P)
 {
-  Standard_Real Teta = (Pos.XDirection()) .AngleWithRef
-    (gp_Vec (Pos.Location(), P), Pos.Direction());
+  gp_Vec aVec(Pos.Location(), P);
+  if (aVec.SquareMagnitude() < gp::Resolution())
+    // coinciding points -> infinite number of parameters
+    return 0.0;
+
+  const gp_Dir& dir = Pos.Direction();
+  // Project vector on circle's plane
+  gp_XYZ aVProj = dir.XYZ().CrossCrossed(aVec.XYZ(), dir.XYZ());
+
+  if (aVProj.SquareModulus() < gp::Resolution())
+    return 0.0;
+
+  // Angle between X direction and projected vector
+  Standard_Real Teta = (Pos.XDirection()).AngleWithRef(aVProj, dir);
+
   if      (Teta < -1.e-16)  Teta += PIPI;
   else if (Teta < 0)        Teta = 0;
   return Teta;
